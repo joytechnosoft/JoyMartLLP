@@ -1,0 +1,11 @@
+JOY MART ANDROID FULL PROJECT
+
+১) ZIP Extract করুন।
+২) Android Studio > Open > JoyMartLLP_Android_Full_Project folder select করুন।
+৩) JDK 17 এবং Android SDK Platform 35 install থাকতে হবে।
+৪) app/build.gradle.kts-এ API_BASE_URL আপনার server-এর https://YOUR-DOMAIN/api/native/v1/ দিন।
+৫) Gradle Sync > Build > Make Project করুন।
+
+এই package-এ main.zip-এর সর্বশেষ source, compact Genealogy update এবং Wallet/Transactions screen একত্র করা হয়েছে। Laravel/server-এর কোনো file নেই; server পরিবর্তন হবে না।
+
+নোট: মূল upload-এ gradle-wrapper.jar ছিল না। তাই gradlew scripts প্রথমবার official Gradle 8.9 download করে চালাবে; internet লাগবে। এখানে Android SDK না থাকায় APK build test করা সম্ভব হয়নি।
