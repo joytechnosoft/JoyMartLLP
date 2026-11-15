@@ -4,7 +4,7 @@
             "outputFile": "com.joymart.llp.app-mergeDebugResources-58:/values-v27/values-v27.xml",
             "map": [
                 {
-                    "source": "C:\\Users\\USER\\.gradle\\caches\\8.9\\transforms\\e0baeb491a0d8fc1e1ec73e1768b5277\\transformed\\core-splashscreen-1.0.1\\res\\values-v27\\values-v27.xml",
+                    "source": "C:\\Users\\jm103771\\.gradle\\caches\\8.9\\transforms\\e0baeb491a0d8fc1e1ec73e1768b5277\\transformed\\core-splashscreen-1.0.1\\res\\values-v27\\values-v27.xml",
                     "from": {
                         "startLines": "2,3,4,7",
                         "startColumns": "4,4,4,4",

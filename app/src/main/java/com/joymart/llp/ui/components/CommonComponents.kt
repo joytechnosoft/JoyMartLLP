@@ -23,4 +23,32 @@ import kotlinx.coroutines.launch
 
 @Composable fun SimpleScreen(title:String,desc:String,icon:androidx.compose.ui.graphics.vector.ImageVector){Column(Modifier.fillMaxSize().padding(24.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center){Icon(icon,null,tint=Color(0xFF087F78),modifier=Modifier.size(54.dp));Spacer(Modifier.height(14.dp));Text(title,fontSize=23.sp,fontWeight=FontWeight.Bold);Text(desc,color=Color.Gray)}}
 
-@Composable fun LoadingOverlay(){Box(Modifier.fillMaxSize().background(Color.Black.copy(.12f)),contentAlignment=Alignment.Center){Card(shape=RoundedCornerShape(20.dp)){Column(Modifier.padding(24.dp),horizontalAlignment=Alignment.CenterHorizontally){CircularProgressIndicator();Spacer(Modifier.height(12.dp));Text("Please wait…",fontWeight=FontWeight.Medium)}}}}
+@Composable
+fun LoadingOverlay() {
+    Box(
+        Modifier.fillMaxSize().background(Color(0x660B1730)),
+        contentAlignment = Alignment.Center
+    ) {
+        Card(
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
+        ) {
+            Row(
+                Modifier.padding(horizontal = 22.dp, vertical = 18.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(25.dp),
+                    strokeWidth = 2.5.dp,
+                    color = Color(0xFF087F78)
+                )
+                Spacer(Modifier.width(14.dp))
+                Column {
+                    Text("Please wait", fontWeight = FontWeight.Bold, color = Color(0xFF172B4D))
+                    Text("Connecting securely to JoyMart…", color = Color(0xFF718097), fontSize = 11.sp)
+                }
+            }
+        }
+    }
+}

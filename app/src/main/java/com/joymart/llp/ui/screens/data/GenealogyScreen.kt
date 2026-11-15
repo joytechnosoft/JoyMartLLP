@@ -1,5 +1,6 @@
 package com.joymart.llp.ui.screens.data
 
+import com.joymart.llp.ui.components.friendlyNetworkError
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -322,10 +323,10 @@ fun GenealogyScreen(api: JoyMartApi, onRegister: () -> Unit = {}) {
                     Column(Modifier.fillMaxWidth().padding(vertical = 9.dp)) {
                         GenealogyLevelRow(label = "ROOT", title = "Main Member", count = "1 member", root = true, rowHeight = (174 * treeScale).dp.coerceAtLeast(112.dp)) {
                             Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
-                                CompactMemberCard(current, true, Modifier.width((142 * treeScale).dp).height((156 * treeScale).dp)
-                                    .onGloballyPositioned { coords -> cardRects[current.id] = coords.rectInRoot() },
-                                    onOpen = {}, onInfo = { detailMember = current }, onLines = { activeLinesId = if (activeLinesId == current.id) null else current.id }, highlighted = current.id in descendantIds || activeLinesId == current.id, cardScale = treeScale)
-                            }
+                            CompactMemberCard(current, true, Modifier.width((142 * treeScale).dp).height((156 * treeScale).dp)
+                                .onGloballyPositioned { coords -> cardRects[current.id] = coords.rectInRoot() },
+                                onOpen = {}, onInfo = { detailMember = current }, onLines = { activeLinesId = if (activeLinesId == current.id) null else current.id }, highlighted = current.id in descendantIds || activeLinesId == current.id, cardScale = treeScale)
+                        }
                         }
                         visibleMembersByLevel.forEach { (level, members) ->
                             GenealogyLevelRow(label = "LEVEL $level", title = "Level $level", count = "${members.size} members", rowHeight = (174 * treeScale).dp.coerceAtLeast(112.dp)) {
@@ -398,46 +399,46 @@ private fun CompactMemberCard(
     val rankColor = remember(member.id, member.rank) { rankColorFor(member.rank, isRoot) }
     val baseDensity = LocalDensity.current
     CompositionLocalProvider(LocalDensity provides Density(baseDensity.density * cardScale, baseDensity.fontScale * cardScale)) {
-        Card(
-            modifier = modifier.graphicsLayer { alpha = if (highlighted) blinkAlpha else 1f }.clickable { onOpen() },
-            shape = RoundedCornerShape(11.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            border = BorderStroke(if (isRoot || highlighted) 1.8.dp else 1.dp, if (highlighted) rankColor else if (isRoot) Color(0xFF6366F1) else Color(0xFFDDE5F0)),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-        ) {
-            Box(Modifier.fillMaxSize().padding(horizontal = 6.dp, vertical = 5.dp)) {
-                Text(if (isRoot) "ROOT" else (serial?.toString() ?: "•"), Modifier.align(Alignment.TopStart).clip(RoundedCornerShape(5.dp)).background(Color(0xFFEAF0FF)).padding(horizontal = 5.dp, vertical = 2.dp), fontSize = 7.sp, color = Color(0xFF3443A5), fontWeight = FontWeight.Bold)
-                IconButton(onClick = onLines, modifier = Modifier.align(Alignment.TopEnd).size(20.dp)) { Icon(Icons.Default.Share, "Show team connections", tint = if (highlighted) rankColor else Color(0xFF64748B), modifier = Modifier.size(12.dp)) }
-                Column(Modifier.fillMaxWidth().padding(top = 15.dp, bottom = 20.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Top) {
-                    Surface(color = rankColor, shape = RoundedCornerShape(20.dp), modifier = Modifier.widthIn(max = 112.dp)) {
-                        Text(member.rank.ifBlank { member.role.ifBlank { "DISTRIBUTOR" } }.uppercase(), Modifier.padding(horizontal = 5.dp, vertical = 2.dp), color = Color.White, fontSize = 6.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                    Spacer(Modifier.height(5.dp))
-                    Box(Modifier.size(26.dp).clip(RoundedCornerShape(8.dp)).background(rankColor), contentAlignment = Alignment.Center) {
-                        Text(member.name.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Black, fontSize = 13.sp)
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    Text(member.name, fontSize = 8.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF1E293B), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(member.memberId, fontSize = 7.sp, color = Color(0xFF64748B), maxLines = 1)
-                    if (!isRoot && member.parentMemberId.isNotBlank()) {
-                        Text("Under: ${member.parentMemberId}", fontSize = 6.sp, color = Color(0xFF64748B), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                    Text(member.phone.ifBlank { "-" }, fontSize = 6.sp, color = Color(0xFF8792A4), maxLines = 1)
-                    Spacer(Modifier.height(4.dp))
-                    Surface(color = if (member.status.equals("ACTIVE", true)) Color(0xFFE4F8EA) else Color(0xFFFFF0E8), shape = RoundedCornerShape(20.dp)) {
-                        Text(member.status.uppercase(), Modifier.padding(horizontal = 6.dp, vertical = 2.dp), fontSize = 6.sp, fontWeight = FontWeight.Bold, color = if (member.status.equals("ACTIVE", true)) Color(0xFF16834A) else Color(0xFFB66A20))
-                    }
-                    Text("${member.teamCount} Direct Members", fontSize = 6.sp, color = Color(0xFF64748B), modifier = Modifier.padding(top = 3.dp), maxLines = 1)
+    Card(
+        modifier = modifier.graphicsLayer { alpha = if (highlighted) blinkAlpha else 1f }.clickable { onOpen() },
+        shape = RoundedCornerShape(11.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(if (isRoot || highlighted) 1.8.dp else 1.dp, if (highlighted) rankColor else if (isRoot) Color(0xFF6366F1) else Color(0xFFDDE5F0)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Box(Modifier.fillMaxSize().padding(horizontal = 6.dp, vertical = 5.dp)) {
+            Text(if (isRoot) "ROOT" else (serial?.toString() ?: "•"), Modifier.align(Alignment.TopStart).clip(RoundedCornerShape(5.dp)).background(Color(0xFFEAF0FF)).padding(horizontal = 5.dp, vertical = 2.dp), fontSize = 7.sp, color = Color(0xFF3443A5), fontWeight = FontWeight.Bold)
+            IconButton(onClick = onLines, modifier = Modifier.align(Alignment.TopEnd).size(20.dp)) { Icon(Icons.Default.Share, "Show team connections", tint = if (highlighted) rankColor else Color(0xFF64748B), modifier = Modifier.size(12.dp)) }
+            Column(Modifier.fillMaxWidth().padding(top = 15.dp, bottom = 20.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Top) {
+                Surface(color = rankColor, shape = RoundedCornerShape(20.dp), modifier = Modifier.widthIn(max = 112.dp)) {
+                    Text(member.rank.ifBlank { member.role.ifBlank { "DISTRIBUTOR" } }.uppercase(), Modifier.padding(horizontal = 5.dp, vertical = 2.dp), color = Color.White, fontSize = 6.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Surface(Modifier.weight(1f).height(18.dp).clickable(onClick = onOpen), color = Color(0xFFF5F7FF), shape = RoundedCornerShape(6.dp), border = BorderStroke(0.7.dp, Color(0xFFDCE4F5))) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) { Icon(Icons.Default.Groups, null, Modifier.size(10.dp), tint = Color(0xFF4053B5)); Spacer(Modifier.width(3.dp)); Text("View Team", fontSize = 7.sp, fontWeight = FontWeight.Bold, color = Color(0xFF4053B5)) }
-                    }
-                    Spacer(Modifier.width(4.dp))
-                    IconButton(onClick = onInfo, modifier = Modifier.size(20.dp)) { Icon(Icons.Default.Info, "Member details", Modifier.size(12.dp), tint = Color(0xFF647CEB)) }
+                Spacer(Modifier.height(5.dp))
+                Box(Modifier.size(26.dp).clip(RoundedCornerShape(8.dp)).background(rankColor), contentAlignment = Alignment.Center) {
+                    Text(member.name.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Black, fontSize = 13.sp)
                 }
+                Spacer(Modifier.height(4.dp))
+                Text(member.name, fontSize = 8.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF1E293B), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(member.memberId, fontSize = 7.sp, color = Color(0xFF64748B), maxLines = 1)
+                if (!isRoot && member.parentMemberId.isNotBlank()) {
+                    Text("Under: ${member.parentMemberId}", fontSize = 6.sp, color = Color(0xFF64748B), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                Text(member.phone.ifBlank { "-" }, fontSize = 6.sp, color = Color(0xFF8792A4), maxLines = 1)
+                Spacer(Modifier.height(4.dp))
+                Surface(color = if (member.status.equals("ACTIVE", true)) Color(0xFFE4F8EA) else Color(0xFFFFF0E8), shape = RoundedCornerShape(20.dp)) {
+                    Text(member.status.uppercase(), Modifier.padding(horizontal = 6.dp, vertical = 2.dp), fontSize = 6.sp, fontWeight = FontWeight.Bold, color = if (member.status.equals("ACTIVE", true)) Color(0xFF16834A) else Color(0xFFB66A20))
+                }
+                Text("${member.teamCount} Direct Members", fontSize = 6.sp, color = Color(0xFF64748B), modifier = Modifier.padding(top = 3.dp), maxLines = 1)
+            }
+            Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Surface(Modifier.weight(1f).height(18.dp).clickable(onClick = onOpen), color = Color(0xFFF5F7FF), shape = RoundedCornerShape(6.dp), border = BorderStroke(0.7.dp, Color(0xFFDCE4F5))) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) { Icon(Icons.Default.Groups, null, Modifier.size(10.dp), tint = Color(0xFF4053B5)); Spacer(Modifier.width(3.dp)); Text("View Team", fontSize = 7.sp, fontWeight = FontWeight.Bold, color = Color(0xFF4053B5)) }
+                }
+                Spacer(Modifier.width(4.dp))
+                IconButton(onClick = onInfo, modifier = Modifier.size(20.dp)) { Icon(Icons.Default.Info, "Member details", Modifier.size(12.dp), tint = Color(0xFF647CEB)) }
             }
         }
+    }
     }
 }
 

@@ -5,6 +5,7 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
+import java.util.concurrent.TimeUnit
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Response
 import com.google.gson.JsonElement
@@ -55,8 +56,19 @@ object ApiFactory {
             tokens.get()?.let { request.header("Authorization", "Bearer $it") }
             chain.proceed(request.build())
         }
-        val logging = HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC }
-        val client = OkHttpClient.Builder().addInterceptor(auth).addInterceptor(logging).build()
+        val logging = HttpLoggingInterceptor().apply {
+            level = if (com.joymart.llp.BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BASIC
+                    else HttpLoggingInterceptor.Level.NONE
+        }
+        val client = OkHttpClient.Builder()
+            .addInterceptor(auth)
+            .addInterceptor(logging)
+            .connectTimeout(20, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .callTimeout(45, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true)
+            .build()
         return Retrofit.Builder().baseUrl(com.joymart.llp.BuildConfig.API_BASE_URL)
             .client(client).addConverterFactory(GsonConverterFactory.create()).build()
             .create(JoyMartApi::class.java)

@@ -20,6 +20,8 @@ import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.joymart.llp.data.JoyMartApi
+import com.joymart.llp.ui.components.friendlyNetworkError
+import com.joymart.llp.ui.components.readableServerError
 import kotlinx.coroutines.launch
 
 private val Navy = Color(0xFF172943)
@@ -57,8 +59,8 @@ fun WalletScreen(api: JoyMartApi, onNavigate:(String)->Unit) {
                     val o=el.asJsonObject
                     LedgerRow(o.string("reason") ?: o.string("type") ?: "Wallet activity", o.string("created_at") ?: "", o.string("change_amount") ?: "0", o.string("status") ?: "—")
                 } ?: emptyList()
-            } else error=response.errorBody()?.string()?.take(350) ?: "Wallet load failed (${response.code()})."
-        }.onFailure { error=it.message ?: "Network error. Check your connection." }
+            } else error=readableServerError(response.errorBody()?.string(), "Wallet load failed (${response.code()}).")
+        }.onFailure { error=friendlyNetworkError(it) }
         loading=false
     }
 
@@ -98,7 +100,7 @@ fun WalletScreen(api: JoyMartApi, onNavigate:(String)->Unit) {
                 Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){ FilterChip(selected=method=="bank",onClick={method="bank"},label={Text("Bank")}); FilterChip(selected=method=="upi",onClick={method="upi"},label={Text("UPI")}) }
             } else {
                 OutlinedTextField(value=search,onValueChange={search=it},label={Text("Search recipient by name / email / mobile")},singleLine=true,modifier=Modifier.fillMaxWidth(),trailingIcon={IconButton(onClick={
-                    scope.launch { runCatching{api.getRaw("wallet/recipients?search=${java.net.URLEncoder.encode(search,"UTF-8")}")}.onSuccess{r-> if(r.isSuccessful){val arr=r.body()?.asObject()?.array("users");recipients=arr?.mapNotNull{e->if(e.isJsonObject){val o=e.asJsonObject;Recipient(o.long("id"),o.string("name")?:"",o.string("email")?:o.string("mobile")?:"")}else null}?: emptyList()}else notice=r.errorBody()?.string()?.take(250)?:"Recipient search failed"}.onFailure{notice=it.message} }
+                    scope.launch { runCatching{api.getRaw("wallet/recipients?search=${java.net.URLEncoder.encode(search,"UTF-8")}")}.onSuccess{r-> if(r.isSuccessful){val arr=r.body()?.asObject()?.array("users");recipients=arr?.mapNotNull{e->if(e.isJsonObject){val o=e.asJsonObject;Recipient(o.long("id"),o.string("name")?:"",o.string("email")?:o.string("mobile")?:"")}else null}?: emptyList()}else notice=r.errorBody()?.string()?.take(250)?:"Recipient search failed"}.onFailure{notice=friendlyNetworkError(it)} }
                 }){Icon(Icons.Default.Search,"Search recipients")}})
                 recipients.forEach { r -> Row(Modifier.fillMaxWidth().background(if(selected?.id==r.id)Color(0xFFE7F5F2) else Color.Transparent,RoundedCornerShape(10.dp)).clickable{selected=r}.padding(9.dp),verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text(r.name,fontWeight=FontWeight.SemiBold,fontSize=12.sp);Text(r.contact,fontSize=10.sp,color=Color.Gray)};if(selected?.id==r.id)Icon(Icons.Default.CheckCircle,contentDescription="Selected",tint=Teal)} }
                 if(selected!=null) Text("Selected: ${selected!!.name}",fontSize=11.sp,color=Teal)
@@ -113,7 +115,7 @@ fun WalletScreen(api: JoyMartApi, onNavigate:(String)->Unit) {
                 val obj=r.body()?.asObject();val ok=r.isSuccessful && (obj?.boolean("success")==true)
                 if(ok){notice=obj?.string("message")?:if(action=="withdraw")"Withdrawal request submitted." else "Transfer completed.";action="";refresh++}
                 else notice=obj?.string("message")?:r.errorBody()?.string()?.take(250)?:"Request failed (${r.code()})."
-            }.onFailure{notice=it.message?:"Network error"}
+            }.onFailure{notice=friendlyNetworkError(it)}
             actionBusy=false
         }
     }){if(actionBusy)CircularProgressIndicator(Modifier.size(16.dp),strokeWidth=2.dp) else Text("Submit")}},dismissButton={TextButton(enabled=!actionBusy,onClick={action=""}){Text("Cancel")}})
@@ -127,8 +129,8 @@ fun TransactionScreen(api:JoyMartApi) {
         loading=true;error=null
         runCatching{api.getRaw("transactions")}.onSuccess{r->
             if(r.isSuccessful){val root=r.body()?.asObject();val tx=root?.objectValue("transactions");val arr=tx?.array("data") ?: root?.array("transactions");rows=arr?.mapNotNull{e->if(e.isJsonObject){val o=e.asJsonObject;LedgerRow(o.string("type")?:o.string("description")?:"Transaction",o.string("created_at")?:"",o.string("amount")?:o.string("change_amount")?:"0",o.string("status")?:"—")}else null}?:emptyList()}
-            else error=r.errorBody()?.string()?.take(300)?:"Unable to load transactions (${r.code()})."
-        }.onFailure{error=it.message?:"Network error"};loading=false
+            else error=readableServerError(r.errorBody()?.string(), "Unable to load transactions (${r.code()}).")
+        }.onFailure{error=friendlyNetworkError(it)};loading=false
     }
     Column(Modifier.fillMaxSize().padding(horizontal=16.dp)) {
         Row(Modifier.fillMaxWidth().padding(top=18.dp,bottom=12.dp),verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("Transactions",fontSize=23.sp,fontWeight=FontWeight.Bold,color=Navy);Text("Latest account transactions",fontSize=12.sp,color=Color.Gray)};IconButton(onClick={refresh++}){Icon(Icons.Default.Refresh,"Refresh")}}

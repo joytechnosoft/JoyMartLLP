@@ -17,37 +17,141 @@ import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.*
 import com.joymart.llp.data.*
 import kotlinx.coroutines.launch
 
-@Composable fun AnimatedSplash() {
-    val infinite= rememberInfiniteTransition(label="splash")
-    val scale by infinite.animateFloat(0.92f,1.06f, infiniteRepeatable(tween(900),RepeatMode.Reverse), label="scale")
-    Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(0xFF0B1730),Color(0xFF1D4266),Color(0xFF087F78)))), contentAlignment=Alignment.Center) {
-        Column(horizontalAlignment=Alignment.CenterHorizontally) {
-            Box(Modifier.size(92.dp).scale(scale).clip(RoundedCornerShape(28.dp)).background(Color.White.copy(.12f)), contentAlignment=Alignment.Center) {
-                Text("J", color=Color.White, fontSize=54.sp, fontWeight=FontWeight.Black)
+@Composable
+fun AnimatedSplash() {
+    val transition = rememberInfiniteTransition(label = "joymart-splash")
+    val logoScale by transition.animateFloat(
+        initialValue = .94f,
+        targetValue = 1.04f,
+        animationSpec = infiniteRepeatable(tween(1100, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "logo-scale"
+    )
+    val glowAlpha by transition.animateFloat(
+        initialValue = .16f,
+        targetValue = .34f,
+        animationSpec = infiniteRepeatable(tween(1500), RepeatMode.Reverse),
+        label = "glow-alpha"
+    )
+    Box(
+        Modifier.fillMaxSize().background(
+            Brush.linearGradient(listOf(Color(0xFF0B1830), Color(0xFF153B61), Color(0xFF087F78)))
+        ),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            Modifier.align(Alignment.TopEnd).padding(top = 100.dp, end = 28.dp)
+                .size(190.dp).clip(CircleShape).background(Color.White.copy(alpha = glowAlpha))
+        )
+        Box(
+            Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = 120.dp)
+                .size(230.dp).clip(CircleShape).background(Color(0xFF4BD6B7).copy(alpha = .10f))
+        )
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(
+                Modifier.size(104.dp).scale(logoScale).clip(RoundedCornerShape(31.dp))
+                    .background(Color.White.copy(alpha = .14f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("J", color = Color.White, fontSize = 61.sp, fontWeight = FontWeight.Black)
             }
-            Spacer(Modifier.height(18.dp)); Text("JoyMart LLP", color=Color.White, fontSize=27.sp, fontWeight=FontWeight.Bold)
-            Text("One business. One smart platform.", color=Color.White.copy(.76f), fontSize=13.sp)
-            Spacer(Modifier.height(28.dp)); CircularProgressIndicator(color=Color(0xFF49E0BD), strokeWidth=2.dp, modifier=Modifier.size(25.dp))
+            Spacer(Modifier.height(22.dp))
+            Text("JoyMart LLP", color = Color.White, fontSize = 29.sp, fontWeight = FontWeight.Bold)
+            Text("ONE BUSINESS. ONE SMART PLATFORM.", color = Color.White.copy(alpha = .76f), fontSize = 10.sp, letterSpacing = 1.6.sp)
+            Spacer(Modifier.height(32.dp))
+            CircularProgressIndicator(color = Color(0xFF65E4C7), strokeWidth = 2.5.dp, modifier = Modifier.size(26.dp))
+            Spacer(Modifier.height(12.dp))
+            Text("Preparing your workspace", color = Color.White.copy(alpha = .70f), fontSize = 11.sp)
         }
     }
 }
 
-@Composable fun LoginScreen(busy:Boolean,message:String?,onDismiss:()->Unit,onRegister:()->Unit,onLogin:(String,String)->Unit) {
-    var login by remember { mutableStateOf("") }; var password by remember { mutableStateOf("") }
+@Composable
+fun LoginScreen(
+    busy: Boolean,
+    message: String?,
+    onDismiss: () -> Unit,
+    onRegister: () -> Unit,
+    onLogin: (String, String) -> Unit
+) {
+    var login by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
+
     AuthBackdrop {
-        Column(Modifier.fillMaxWidth().padding(horizontal=24.dp), horizontalAlignment=Alignment.Start) {
-            BrandMark(); Spacer(Modifier.height(30.dp))
-            Text("Welcome back", fontSize=30.sp, fontWeight=FontWeight.Bold, color=Color(0xFF102447))
-            Text("Sign in to your JoyMart workspace", color=Color(0xFF68758A), modifier=Modifier.padding(top=6.dp,bottom=24.dp))
-            OutlinedTextField(login,{login=it},Modifier.fillMaxWidth(),label={Text("Phone or email")},singleLine=true,leadingIcon={Icon(Icons.Default.Person,null)})
-            Spacer(Modifier.height(12.dp)); OutlinedTextField(password,{password=it},Modifier.fillMaxWidth(),label={Text("Password")},singleLine=true,visualTransformation=PasswordVisualTransformation(),leadingIcon={Icon(Icons.Default.Lock,null)})
-            Spacer(Modifier.height(20.dp)); Button(onClick={onLogin(login.trim(),password)},Modifier.fillMaxWidth().height(54.dp),enabled=!busy && login.isNotBlank() && password.isNotBlank(),shape=RoundedCornerShape(16.dp)) { if(busy) CircularProgressIndicator(Modifier.size(20.dp),color=Color.White,strokeWidth=2.dp) else Text("Sign in",fontWeight=FontWeight.Bold) }
-            TextButton(onClick=onRegister,Modifier.fillMaxWidth()) { Text("New to JoyMart?  Create an account") }
-            if(!message.isNullOrBlank()) AlertDialog(onDismissRequest=onDismiss,confirmButton={TextButton(onClick=onDismiss){Text("OK")}},icon={Icon(Icons.Default.Info,null)},title={Text("Sign in")},text={Text(message)})
+        Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+                .padding(horizontal = 22.dp, vertical = 22.dp),
+            horizontalAlignment = Alignment.Start
+        ) {
+            BrandMark()
+            Spacer(Modifier.height(34.dp))
+            Text("Welcome back", style = MaterialTheme.typography.headlineMedium, color = Color(0xFF102447), fontWeight = FontWeight.Bold)
+            Text("Sign in to your JoyMart workspace", style = MaterialTheme.typography.bodyMedium, color = Color(0xFF68758A), modifier = Modifier.padding(top = 7.dp, bottom = 25.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = .94f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+            ) {
+                Column(Modifier.padding(18.dp)) {
+                    Text("ACCOUNT LOGIN", style = MaterialTheme.typography.labelLarge, color = Color(0xFF53647D), fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = login,
+                        onValueChange = { login = it },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                        label = { Text("Phone number or email") },
+                        singleLine = true,
+                        leadingIcon = { Icon(Icons.Default.Person, null) },
+                        shape = RoundedCornerShape(14.dp),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                        label = { Text("Password") },
+                        singleLine = true,
+                        leadingIcon = { Icon(Icons.Default.Lock, null) },
+                        trailingIcon = {
+                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                Icon(if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility, if (passwordVisible) "Hide password" else "Show password")
+                            }
+                        },
+                        visualTransformation = if (passwordVisible) androidx.compose.ui.text.input.VisualTransformation.None else PasswordVisualTransformation(),
+                        shape = RoundedCornerShape(14.dp),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    )
+                    Spacer(Modifier.height(20.dp))
+                    Button(
+                        onClick = { onLogin(login.trim(), password) },
+                        modifier = Modifier.fillMaxWidth().height(54.dp),
+                        enabled = !busy && login.isNotBlank() && password.isNotBlank(),
+                        shape = RoundedCornerShape(15.dp)
+                    ) {
+                        if (busy) CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                        else Text("Sign in securely", fontWeight = FontWeight.Bold)
+                    }
+                    TextButton(onClick = onRegister, modifier = Modifier.fillMaxWidth()) {
+                        Text("New to JoyMart?  Create an account")
+                    }
+                }
+            }
+            if (!message.isNullOrBlank()) {
+                Spacer(Modifier.height(12.dp))
+                Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                TextButton(onClick = onDismiss) { Text("Dismiss") }
+            }
+            Spacer(Modifier.height(18.dp))
+            Text("Secure access to your business workspace", color = Color(0xFF8290A3), style = MaterialTheme.typography.labelSmall)
         }
     }
 }
@@ -111,7 +215,11 @@ fun RegisterScreen(
                         ?: "Invalid Sponsor / Parent Member ID."
                 }
             } catch (e: Exception) {
-                localError = e.message ?: "Unable to verify Sponsor ID. Check your connection."
+                localError = when (e) {
+                is java.net.UnknownHostException -> "Cannot reach JoyMart server. Check your internet connection and API domain."
+                is java.net.SocketTimeoutException -> "Server response timed out. Please try again."
+                else -> e.message ?: "Unable to verify Sponsor ID. Check your connection."
+            }
             } finally {
                 verifying = false
             }
@@ -149,8 +257,9 @@ fun RegisterScreen(
                         selectedRole = ""
                         localError = null
                     },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).heightIn(min = 54.dp),
                     singleLine = true,
+                    shape = RoundedCornerShape(13.dp),
                     placeholder = { Text("Enter Sponsor ID") }
                 )
                 Spacer(Modifier.width(6.dp))
@@ -173,17 +282,17 @@ fun RegisterScreen(
             }
 
             Text("FULL NAME *", fontSize = 11.sp, color = Color(0xFF53647D), fontWeight = FontWeight.SemiBold)
-            OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), placeholder = { Text("Enter full name") }, singleLine = true)
+            OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth().heightIn(min = 54.dp), placeholder = { Text("Enter full name") }, singleLine = true, shape = RoundedCornerShape(13.dp))
             Spacer(Modifier.height(12.dp))
 
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Column(Modifier.weight(1f)) {
                     Text("PHONE NUMBER *", fontSize = 11.sp, color = Color(0xFF53647D), fontWeight = FontWeight.SemiBold)
-                    OutlinedTextField(phone, { phone = it }, Modifier.fillMaxWidth(), placeholder = { Text("Phone number") }, singleLine = true)
+                    OutlinedTextField(phone, { phone = it }, Modifier.fillMaxWidth().heightIn(min = 54.dp), placeholder = { Text("Phone number") }, singleLine = true, shape = RoundedCornerShape(13.dp), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone))
                 }
                 Column(Modifier.weight(1f)) {
                     Text("EMAIL ADDRESS", fontSize = 11.sp, color = Color(0xFF53647D), fontWeight = FontWeight.SemiBold)
-                    OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth(), placeholder = { Text("Email (optional)") }, singleLine = true)
+                    OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth().heightIn(min = 54.dp), placeholder = { Text("Email (optional)") }, singleLine = true, shape = RoundedCornerShape(13.dp), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
                 }
             }
             Spacer(Modifier.height(12.dp))
@@ -191,11 +300,11 @@ fun RegisterScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Column(Modifier.weight(1f)) {
                     Text("PASSWORD *", fontSize = 11.sp, color = Color(0xFF53647D), fontWeight = FontWeight.SemiBold)
-                    OutlinedTextField(pass, { pass = it }, Modifier.fillMaxWidth(), placeholder = { Text("Min 6 characters") }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
+                    OutlinedTextField(pass, { pass = it }, Modifier.fillMaxWidth().heightIn(min = 54.dp), placeholder = { Text("Min 6 characters") }, visualTransformation = PasswordVisualTransformation(), singleLine = true, shape = RoundedCornerShape(13.dp))
                 }
                 Column(Modifier.weight(1f)) {
                     Text("CONFIRM PASSWORD *", fontSize = 11.sp, color = Color(0xFF53647D), fontWeight = FontWeight.SemiBold)
-                    OutlinedTextField(confirm, { confirm = it }, Modifier.fillMaxWidth(), placeholder = { Text("Re-type password") }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
+                    OutlinedTextField(confirm, { confirm = it }, Modifier.fillMaxWidth().heightIn(min = 54.dp), placeholder = { Text("Re-type password") }, visualTransformation = PasswordVisualTransformation(), singleLine = true, shape = RoundedCornerShape(13.dp))
                 }
             }
             Spacer(Modifier.height(12.dp))
@@ -220,11 +329,27 @@ fun RegisterScreen(
                     }
                 }
             }
-            if (!serverMessage.isNullOrBlank()) {
-                Text(serverMessage, color = MaterialTheme.colorScheme.error, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
-            }
-            if (!localError.isNullOrBlank()) {
-                Text(localError!!, color = MaterialTheme.colorScheme.error, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+            val visibleError = localError ?: serverMessage
+            AnimatedVisibility(visible = !visibleError.isNullOrBlank(), enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+                Card(
+                    Modifier.fillMaxWidth().padding(top = 10.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF1F0))
+                ) {
+                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {
+                        Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = Color(0xFFC43D3D), modifier = Modifier.size(19.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(visibleError.orEmpty(), color = Color(0xFF9E3030), style = MaterialTheme.typography.bodySmall)
+                            if (!localError.isNullOrBlank()) {
+                                TextButton(
+                                    onClick = { verifySponsor(memberId) },
+                                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp)
+                                ) { Text("Try again", color = Color(0xFF9E3030), fontSize = 11.sp) }
+                            }
+                        }
+                    }
+                }
             }
             Spacer(Modifier.height(16.dp))
             Button(
@@ -255,8 +380,34 @@ fun RegisterScreen(
     }
 }
 
-@Composable fun AuthBackdrop(content:@Composable ColumnScope.()->Unit) {
-    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFFEAF4F8),Color(0xFFF8FAFD))))) { Column(Modifier.fillMaxSize().padding(top=32.dp),content=content) }
+@Composable
+fun AuthBackdrop(content: @Composable ColumnScope.() -> Unit) {
+    Box(
+        Modifier.fillMaxSize().background(
+            Brush.verticalGradient(listOf(Color(0xFFEAF3F8), Color(0xFFF7F9FC), Color(0xFFF9FBFD)))
+        )
+    ) {
+        Column(
+            Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding(),
+            content = content
+        )
+    }
 }
 
-@Composable fun BrandMark(){ Row(verticalAlignment=Alignment.CenterVertically){ Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xFF102447)),contentAlignment=Alignment.Center){Text("J",color=Color.White,fontSize=26.sp,fontWeight=FontWeight.Black)}; Spacer(Modifier.width(10.dp)); Column{Text("JOYMART",fontWeight=FontWeight.Black,color=Color(0xFF102447),letterSpacing=1.5.sp);Text("LLP BUSINESS PLATFORM",fontSize=9.sp,color=Color(0xFF718097),letterSpacing=1.sp)} } }
+@Composable
+fun BrandMark() {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier.size(46.dp).clip(RoundedCornerShape(15.dp))
+                .background(Brush.linearGradient(listOf(Color(0xFF132B50), Color(0xFF087F78)))),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("J", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Black)
+        }
+        Spacer(Modifier.width(11.dp))
+        Column {
+            Text("JOYMART", fontWeight = FontWeight.ExtraBold, color = Color(0xFF102447), letterSpacing = 1.4.sp)
+            Text("LLP BUSINESS PLATFORM", fontSize = 9.sp, color = Color(0xFF718097), letterSpacing = 1.sp)
+        }
+    }
+}

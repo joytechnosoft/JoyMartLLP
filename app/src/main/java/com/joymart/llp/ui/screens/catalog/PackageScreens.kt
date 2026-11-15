@@ -1,5 +1,6 @@
 package com.joymart.llp.ui.screens.catalog
 
+import com.joymart.llp.ui.components.friendlyNetworkError
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
@@ -24,7 +25,7 @@ import kotlinx.coroutines.launch
 @Composable fun VrindabanPackagesScreen(api:JoyMartApi) {
     var items by remember{mutableStateOf<List<PackageDto>>(emptyList())}; var loading by remember{mutableStateOf(true)}; var error by remember{mutableStateOf<String?>(null)}; var showCreate by remember{mutableStateOf(false)}; var notice by remember{mutableStateOf<String?>(null)}
     val scope= rememberCoroutineScope()
-    suspend fun refresh(){runCatching{api.packages()}.onSuccess{r->if(r.isSuccessful)items=r.body()?.data?: emptyList() else error=r.errorBody()?.string()}.onFailure{error=it.message};loading=false}
+    suspend fun refresh(){runCatching{api.packages()}.onSuccess{r->if(r.isSuccessful)items=r.body()?.data?: emptyList() else error=r.errorBody()?.string()}.onFailure{error=friendlyNetworkError(it)};loading=false}
     LaunchedEffect(Unit){refresh()}
     Column(Modifier.fillMaxSize().padding(18.dp)){Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("Vrindaban packages",fontSize=22.sp,fontWeight=FontWeight.Bold);Text("Package catalogue and pricing",color=Color.Gray,fontSize=12.sp)};Button(onClick={showCreate=true}){Icon(Icons.Default.Add,null);Text("Create")}};Spacer(Modifier.height(12.dp));if(loading)LinearProgressIndicator(Modifier.fillMaxWidth());if(error!=null)Text(error!!,color=MaterialTheme.colorScheme.error);LazyColumn(verticalArrangement=Arrangement.spacedBy(10.dp)){items(items.size){i->val p=items[i];Card(shape=RoundedCornerShape(18.dp)){Column(Modifier.padding(16.dp)){Text(p.name,fontWeight=FontWeight.Bold,fontSize=16.sp);Text(p.code,color=Color.Gray,fontSize=11.sp);Spacer(Modifier.height(6.dp));Text("₹${p.price}",fontWeight=FontWeight.Bold,color=Color(0xFF087F78),fontSize=19.sp);Text("${p.status ?: "—"}  •  Cost ₹${p.totalCost ?: "—"}  •  Commission pool ₹${p.commissionPool ?: "—"}",fontSize=11.sp,color=Color.Gray)}}}}}
     if(showCreate) CreatePackageDialog(api,{showCreate=false},{msg->notice=msg;showCreate=false;scope.launch{refresh()}})

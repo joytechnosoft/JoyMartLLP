@@ -1,5 +1,9 @@
 [
     {
+        "merged": "C:\\Users\\jm103771\\.gradle\\daemon\\8.9\\com.joymart.llp.app-debug-60:\\drawable_ic_joymart.xml.flat",
+        "source": "C:\\Users\\jm103771\\.gradle\\daemon\\8.9\\com.joymart.llp.app-main-62:\\drawable\\ic_joymart.xml"
+    },
+    {
         "merged": "com.joymart.llp.app-debug-60:/drawable_ic_joymart.xml.flat",
         "source": "com.joymart.llp.app-main-62:/drawable/ic_joymart.xml"
     }
