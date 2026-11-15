@@ -59,7 +59,6 @@ fun JoyMartApp(api: JoyMartApi, tokens: TokenStore) {
     var returnPage by remember { mutableStateOf("home") }
     var inlineMessage by remember { mutableStateOf<String?>(null) }
     var notice by remember { mutableStateOf<AppNotice?>(null) }
-    var loginFormKey by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(Unit) {
         val token = tokens.get()
@@ -88,7 +87,7 @@ fun JoyMartApp(api: JoyMartApi, tokens: TokenStore) {
                 user = tokens.getProfile()
                 isAdmin = tokens.getAdmin()
                 notice = if (user == null) AppNotice("Connection problem", friendlyThrowable(e), NoticeKind.ERROR)
-                         else AppNotice("Connection limited", "${friendlyThrowable(e)} Showing your saved account profile.", NoticeKind.WARNING)
+                else AppNotice("Connection limited", "${friendlyThrowable(e)} Showing your saved account profile.", NoticeKind.WARNING)
             }
         }
         appReady = true
@@ -161,7 +160,7 @@ fun JoyMartApp(api: JoyMartApi, tokens: TokenStore) {
                     }
                 }
             )
-            user == null -> key(loginFormKey) {
+            user == null -> {
                 LoginScreen(
                     busy = busy,
                     message = null,
@@ -204,12 +203,10 @@ fun JoyMartApp(api: JoyMartApi, tokens: TokenStore) {
                                     }
                                 } else {
                                     tokens.clear()
-                                    loginFormKey++
                                     val error = readableApiError(response.errorBody()?.string() ?: body?.message ?: "Invalid login details. Please try again.")
                                     notice = AppNotice("Sign-in failed", error, NoticeKind.ERROR)
                                 }
                             } catch (e: Exception) {
-                                loginFormKey++
                                 notice = AppNotice("Unable to sign in", friendlyThrowable(e), NoticeKind.ERROR)
                             } finally { busy = false }
                         }
@@ -231,7 +228,6 @@ fun JoyMartApp(api: JoyMartApi, tokens: TokenStore) {
                         user = null
                         isAdmin = false
                         page = "login"
-                        loginFormKey++
                         notice = AppNotice("Signed out", "You have been securely signed out.", NoticeKind.SUCCESS)
                     }
                 },

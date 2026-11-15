@@ -52,13 +52,30 @@ fun WalletScreen(api: JoyMartApi, onNavigate:(String)->Unit) {
         runCatching { api.getRaw("wallet") }.onSuccess { response ->
             if(response.isSuccessful) {
                 val root=response.body()?.asObject()
-                balance=root?.string("balance") ?: "0.00"
-                val list=root?.array("wallets")
-                rows=list?.mapNotNull { el ->
-                    if(!el.isJsonObject) return@mapNotNull null
-                    val o=el.asJsonObject
-                    LedgerRow(o.string("reason") ?: o.string("type") ?: "Wallet activity", o.string("created_at") ?: "", o.string("change_amount") ?: "0", o.string("status") ?: "—")
-                } ?: emptyList()
+                if (root?.boolean("success") != true) {
+                    error=root?.string("message") ?: "Wallet response was not successful."
+                } else {
+                    // NativeCoreApiController returns {success:true,data:{balance,history,...}}.
+                    val data=root.objectValue("data")
+                    if (data == null || data.get("balance") == null || data.get("balance").isJsonNull) {
+                        error="Wallet balance is unavailable. Please retry."
+                    } else {
+                        val amount = runCatching { data.get("balance").asBigDecimal }.getOrNull()
+                        balance = amount?.setScale(2, java.math.RoundingMode.HALF_UP)?.toPlainString() ?: "—"
+                        rows=data.array("history")?.mapNotNull { el ->
+                            if(!el.isJsonObject) return@mapNotNull null
+                            val o=el.asJsonObject
+                            val type=o.string("type")?.uppercase().orEmpty()
+                            val value=runCatching { o.get("amount")?.asBigDecimal?.abs() }.getOrNull()
+                            val signed=when {
+                                type.contains("DEBIT") || type.contains("WITHDRAW") -> "−₹${value?.setScale(2, java.math.RoundingMode.HALF_UP)?.toPlainString() ?: "0.00"}"
+                                type.contains("CREDIT") -> "+₹${value?.setScale(2, java.math.RoundingMode.HALF_UP)?.toPlainString() ?: "0.00"}"
+                                else -> "₹${value?.setScale(2, java.math.RoundingMode.HALF_UP)?.toPlainString() ?: "0.00"}"
+                            }
+                            LedgerRow(o.string("description") ?: type.ifBlank { "Wallet activity" }, o.string("created_at") ?: "", signed, o.string("status") ?: "—")
+                        } ?: emptyList()
+                    }
+                }
             } else error=readableServerError(response.errorBody()?.string(), "Wallet load failed (${response.code()}).")
         }.onFailure { error=friendlyNetworkError(it) }
         loading=false
@@ -73,11 +90,11 @@ fun WalletScreen(api: JoyMartApi, onNavigate:(String)->Unit) {
         Card(Modifier.fillMaxWidth(),shape=RoundedCornerShape(22.dp),colors=CardDefaults.cardColors(containerColor=Navy)) {
             Column(Modifier.padding(20.dp)) {
                 Text("AVAILABLE BALANCE (API REPORTED)",fontSize=10.sp,color=Color.White.copy(.72f),fontWeight=FontWeight.Bold)
-                Spacer(Modifier.height(8.dp)); Text("₹ $balance",fontSize=30.sp,color=Color.White,fontWeight=FontWeight.Bold)
+                Spacer(Modifier.height(8.dp)); Text(if(balance=="—") "Balance unavailable" else "₹ $balance",fontSize=30.sp,color=Color.White,fontWeight=FontWeight.Bold)
                 Spacer(Modifier.height(16.dp)); Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                    Button(onClick={action="withdraw";amount=""},colors=ButtonDefaults.buttonColors(containerColor=Color.White,contentColor=Navy)) { Icon(Icons.Default.ArrowUpward,null); Spacer(Modifier.width(5.dp)); Text("Withdraw") }
-                    OutlinedButton(onClick={action="transfer";amount="";selected=null;recipients=emptyList()},colors=ButtonDefaults.outlinedButtonColors(contentColor=Color.White)) { Icon(Icons.Default.Send,null); Spacer(Modifier.width(5.dp)); Text("Transfer") }
-                }
+                Button(onClick={action="withdraw";amount=""},colors=ButtonDefaults.buttonColors(containerColor=Color.White,contentColor=Navy)) { Icon(Icons.Default.ArrowUpward,null); Spacer(Modifier.width(5.dp)); Text("Withdraw") }
+                OutlinedButton(onClick={action="transfer";amount="";selected=null;recipients=emptyList()},colors=ButtonDefaults.outlinedButtonColors(contentColor=Color.White)) { Icon(Icons.Default.Send,null); Spacer(Modifier.width(5.dp)); Text("Transfer") }
+            }
             }
         }
         Row(Modifier.fillMaxWidth().padding(top=18.dp,bottom=8.dp),verticalAlignment=Alignment.CenterVertically) {

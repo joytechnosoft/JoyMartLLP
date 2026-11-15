@@ -11,8 +11,8 @@ android {
         applicationId = "com.joymart.llp"
         minSdk = 24
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 4
+        versionName = "1.3.0"
         // Replace with your production Native API base URL; must end with /
         buildConfigField("String", "API_BASE_URL", "\"https://joymartllp.com/api/native/v1/\"")
     }

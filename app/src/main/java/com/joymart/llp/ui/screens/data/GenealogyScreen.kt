@@ -19,6 +19,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,7 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
 import com.google.gson.JsonObject
-import com.joymart.llp.data.JoyMartApi
+import com.joymart.llp.data.*
 import kotlinx.coroutines.launch
 import kotlin.math.max
 
@@ -77,11 +82,13 @@ fun GenealogyScreen(api: JoyMartApi, onRegister: () -> Unit = {}) {
     var searchHits by remember { mutableStateOf<List<MemberSearchHit>>(emptyList()) }
     var searchMessage by remember { mutableStateOf<String?>(null) }
     var detailMember by remember { mutableStateOf<UniMember?>(null) }
+    var registerSponsor by remember { mutableStateOf<String?>(null) }
     var refreshKey by remember { mutableIntStateOf(0) }
     var visibleLevels by remember { mutableIntStateOf(4) }
     var viewMode by remember { mutableStateOf("chart") }
     var currentRootId by remember { mutableStateOf<Long?>(null) }
-    var treeScale by remember { mutableFloatStateOf(1f) }
+    var viewerDatabaseId by remember { mutableStateOf<Long?>(null) }
+    var treeScale by remember { mutableFloatStateOf(0.75f) }
     var activeLinesId by remember { mutableStateOf<Long?>(null) }
     val history = remember { mutableStateListOf<UniMember>() }
     val scope = rememberCoroutineScope()
@@ -109,11 +116,12 @@ fun GenealogyScreen(api: JoyMartApi, onRegister: () -> Unit = {}) {
             if (json.get("success")?.asBoolean != true) error(json.get("message")?.asString ?: "Could not load team.")
             val data = json.getAsJsonObject("data") ?: error("Invalid server response.")
             val newRoot = parseUniMember(data.getAsJsonObject("root") ?: error("Root member missing."))
+            viewerDatabaseId = data.get("viewer_id")?.asLong ?: viewerDatabaseId
             if (pushHistory) root?.let { history.add(it) }
             root = newRoot
             currentRootId = newRoot.id
             activeLinesId = null
-            treeScale = 1f
+            treeScale = 0.75f
             directCount = data.get("direct_count")?.asInt ?: newRoot.children.size
             totalCount = data.get("total_count")?.asInt ?: directCount
         } catch (e: Exception) {
@@ -162,8 +170,15 @@ fun GenealogyScreen(api: JoyMartApi, onRegister: () -> Unit = {}) {
                 Text("Genealogy / My Team", fontSize = 19.sp, fontWeight = FontWeight.Bold, color = Color(0xFF172943))
                 Text("Uni-Level • Every member has equal opportunity", fontSize = 9.sp, color = Color(0xFF7A8495))
             }
+            if (currentRootId != null && viewerDatabaseId != null && currentRootId != viewerDatabaseId) {
+                FilledTonalButton(
+                    onClick = { history.clear(); scope.launch { loadMember(viewerDatabaseId, depth = visibleLevels) } },
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                    modifier = Modifier.height(32.dp)
+                ) { Icon(Icons.Default.Groups, null, Modifier.size(13.dp)); Spacer(Modifier.width(3.dp)); Text("My Team", fontSize = 9.sp) }
+            }
             IconButton(onClick = { refreshKey++ }, modifier = Modifier.size(34.dp)) { Icon(Icons.Default.Refresh, "Refresh", Modifier.size(19.dp)) }
-            IconButton(onClick = onRegister, modifier = Modifier.size(34.dp)) { Icon(Icons.Default.PersonAddAlt1, "Register member", tint = Color(0xFF1769D2), modifier = Modifier.size(19.dp)) }
+            IconButton(onClick = { onRegister() }, modifier = Modifier.size(34.dp)) { Icon(Icons.Default.PersonAddAlt1, "Register member", tint = Color(0xFF1769D2), modifier = Modifier.size(19.dp)) }
         }
 
         if (history.isNotEmpty()) {
@@ -234,7 +249,11 @@ fun GenealogyScreen(api: JoyMartApi, onRegister: () -> Unit = {}) {
             }
 
             if (viewMode == "classic") {
-                CompactMemberCard(current, isRoot = true, Modifier.fillMaxWidth().padding(top = 7.dp), onOpen = {}, onInfo = { detailMember = current }, onLines = { activeLinesId = if (activeLinesId == current.id) null else current.id }, highlighted = false)
+                Row(Modifier.fillMaxWidth().padding(top=7.dp,bottom=6.dp),verticalAlignment=Alignment.CenterVertically) {
+                    Text("CURRENT TEAM",Modifier.weight(1f),fontSize=9.sp,fontWeight=FontWeight.Bold,color=Color(0xFF1769D2))
+                    if(currentRootId != viewerDatabaseId) TextButton(onClick={history.clear();scope.launch{loadMember(viewerDatabaseId,depth=visibleLevels)}}){Text("My Team",fontSize=10.sp)}
+                }
+                ClassicMemberRow(current, isRoot=true, onOpen={}, onInfo={detailMember=current}, onNewJoin={registerSponsor=current.memberId})
                 var levelMembers = current.children
                 for (level in 1..visibleLevels) {
                     if (levelMembers.isEmpty()) break
@@ -243,9 +262,7 @@ fun GenealogyScreen(api: JoyMartApi, onRegister: () -> Unit = {}) {
                         Text("${levelMembers.size} members", fontSize = 8.sp, color = Color.Gray)
                     }
                     levelMembers.forEach { member ->
-                        CompactMemberCard(member, false, Modifier.fillMaxWidth().padding(bottom = 5.dp),
-                            onOpen = { scope.launch { loadMember(member.id, true) } }, onInfo = { detailMember = member },
-                            onLines = { activeLinesId = if (activeLinesId == member.id) null else member.id }, highlighted = false)
+                        ClassicMemberRow(member, isRoot=false, onOpen={scope.launch{loadMember(member.id,true)}}, onInfo={detailMember=member}, onNewJoin={registerSponsor=member.memberId})
                     }
                     levelMembers = levelMembers.flatMap { it.children }
                 }
@@ -272,7 +289,7 @@ fun GenealogyScreen(api: JoyMartApi, onRegister: () -> Unit = {}) {
                     IconButton(onClick = { treeScale = (treeScale - 0.1f).coerceAtLeast(0.65f) }, modifier = Modifier.size(30.dp)) { Icon(Icons.Default.ZoomOut, "Make cards smaller", Modifier.size(17.dp)) }
                     Text("${(treeScale * 100).toInt()}%", fontSize = 8.sp, color = Color.Gray)
                     IconButton(onClick = { treeScale = (treeScale + 0.1f).coerceAtMost(1.35f) }, modifier = Modifier.size(30.dp)) { Icon(Icons.Default.ZoomIn, "Make cards larger", Modifier.size(17.dp)) }
-                    IconButton(onClick = { treeScale = 1f }, modifier = Modifier.size(30.dp)) { Icon(Icons.Default.CenterFocusStrong, "Reset card size", Modifier.size(17.dp)) }
+                    IconButton(onClick = { treeScale = 0.75f }, modifier = Modifier.size(30.dp)) { Icon(Icons.Default.CenterFocusStrong, "Reset card size", Modifier.size(17.dp)) }
                 }
 
                 val visibleMembersByLevel = remember(current, visibleLevels) {
@@ -295,16 +312,44 @@ fun GenealogyScreen(api: JoyMartApi, onRegister: () -> Unit = {}) {
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color(0xFFEAF0F8))
                         .onGloballyPositioned { boardOrigin = it.positionInRoot() }
                 ) {
+
+                    Column(Modifier.fillMaxWidth().padding(vertical = 9.dp)) {
+                        GenealogyLevelRow(label = "ROOT", title = "Main Member", count = "1 member", root = true, rowHeight = (174 * treeScale).dp.coerceAtLeast(112.dp)) {
+                            Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
+                                CompactMemberCard(current, true, Modifier.width((142 * treeScale).dp).height((156 * treeScale).dp)
+                                    .onGloballyPositioned { coords -> cardRects[current.id] = coords.rectInRoot() },
+                                    onOpen = {}, onInfo = { detailMember = current }, onLines = { activeLinesId = if (activeLinesId == current.id) null else current.id }, highlighted = current.id in descendantIds || activeLinesId == current.id, cardScale = treeScale, onNewJoin = { registerSponsor = current.memberId })
+                            }
+                        }
+                        visibleMembersByLevel.forEach { (level, members) ->
+                            GenealogyLevelRow(label = "LEVEL $level", title = "Level $level", count = "${members.size} members", rowHeight = (174 * treeScale).dp.coerceAtLeast(112.dp)) {
+                                if (members.isEmpty()) {
+                                    Text("No members in this level", fontSize = 9.sp, color = Color.Gray, modifier = Modifier.padding(horizontal = 12.dp))
+                                } else {
+                                    Row(Modifier.fillMaxHeight().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(9.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        members.forEachIndexed { memberIndex, member ->
+                                            val parentIsActive = activeLinesId == member.id || member.id in descendantIds
+                                            CompactMemberCard(member, false, Modifier.width((128 * treeScale).dp).height((154 * treeScale).dp)
+                                                .onGloballyPositioned { coords -> cardRects[member.id] = coords.rectInRoot() },
+                                                onOpen = { scope.launch { loadMember(member.id, true, visibleLevels) } },
+                                                onInfo = { detailMember = member },
+                                                onLines = { activeLinesId = if (activeLinesId == member.id) null else member.id },
+                                                highlighted = parentIsActive, blinkAlpha = if (parentIsActive) blinkAlpha else 1f, serial = memberIndex + 1, cardScale = treeScale, onNewJoin = { registerSponsor = member.memberId })
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                     Canvas(Modifier.matchParentSize()) {
                         val rootRect = cardRects[current.id]
                         val stroke = 1.5.dp.toPx()
                         fun drawConnector(parent: Rect, child: Rect, color: Color, active: Boolean) {
-                            val safeScale = treeScale.coerceAtLeast(0.01f)
-                            val start = Offset((parent.center.x - boardOrigin.x) / safeScale, (parent.bottom - boardOrigin.y) / safeScale)
-                            val end = Offset((child.center.x - boardOrigin.x) / safeScale, (child.top - boardOrigin.y) / safeScale)
+                            val start = Offset((parent.center.x - boardOrigin.x), (parent.bottom - boardOrigin.y))
+                            val end = Offset((child.center.x - boardOrigin.x), (child.top - boardOrigin.y))
                             val midY = (start.y + end.y) / 2f
                             val path = Path().apply { moveTo(start.x, start.y); cubicTo(start.x, midY, end.x, midY, end.x, end.y) }
-                            drawPath(path, color.copy(alpha = if (active) blinkAlpha else 0.35f), style = Stroke(width = if (active) 2.5.dp.toPx() else stroke, cap = StrokeCap.Round, pathEffect = PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 6.dp.toPx()))) )
+                            drawPath(path, color.copy(alpha = if (active) blinkAlpha else 0.35f), style = Stroke(width = if (active) 2.8.dp.toPx() else stroke, cap = StrokeCap.Round, pathEffect = PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 6.dp.toPx()))) )
                             drawCircle(color.copy(alpha = if (active) blinkAlpha else 0.6f), radius = 2.5.dp.toPx(), center = end)
                         }
                         if (rootRect != null) {
@@ -320,39 +365,20 @@ fun GenealogyScreen(api: JoyMartApi, onRegister: () -> Unit = {}) {
                             }
                         }
                     }
-                    Column(Modifier.fillMaxWidth().padding(vertical = 9.dp)) {
-                        GenealogyLevelRow(label = "ROOT", title = "Main Member", count = "1 member", root = true, rowHeight = (174 * treeScale).dp.coerceAtLeast(112.dp)) {
-                            Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
-                            CompactMemberCard(current, true, Modifier.width((142 * treeScale).dp).height((156 * treeScale).dp)
-                                .onGloballyPositioned { coords -> cardRects[current.id] = coords.rectInRoot() },
-                                onOpen = {}, onInfo = { detailMember = current }, onLines = { activeLinesId = if (activeLinesId == current.id) null else current.id }, highlighted = current.id in descendantIds || activeLinesId == current.id, cardScale = treeScale)
-                        }
-                        }
-                        visibleMembersByLevel.forEach { (level, members) ->
-                            GenealogyLevelRow(label = "LEVEL $level", title = "Level $level", count = "${members.size} members", rowHeight = (174 * treeScale).dp.coerceAtLeast(112.dp)) {
-                                if (members.isEmpty()) {
-                                    Text("No members in this level", fontSize = 9.sp, color = Color.Gray, modifier = Modifier.padding(horizontal = 12.dp))
-                                } else {
-                                    Row(Modifier.fillMaxHeight().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(9.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        members.forEachIndexed { memberIndex, member ->
-                                            val parentIsActive = activeLinesId == member.id || member.id in descendantIds
-                                            CompactMemberCard(member, false, Modifier.width((128 * treeScale).dp).height((154 * treeScale).dp)
-                                                .onGloballyPositioned { coords -> cardRects[member.id] = coords.rectInRoot() },
-                                                onOpen = { scope.launch { loadMember(member.id, true, visibleLevels) } },
-                                                onInfo = { detailMember = member },
-                                                onLines = { activeLinesId = if (activeLinesId == member.id) null else member.id },
-                                                highlighted = parentIsActive, blinkAlpha = if (parentIsActive) blinkAlpha else 1f, serial = memberIndex + 1, cardScale = treeScale)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
                 }
                 Text("Tap a card to open its team • Share icon highlights all downline links • ⓘ shows details", fontSize = 8.sp, color = Color.Gray, modifier = Modifier.padding(top = 5.dp, bottom = 10.dp))
             }
         }
         Spacer(Modifier.height(24.dp))
+    }
+
+    registerSponsor?.let { sponsorId ->
+        GenealogyRegisterDialog(
+            sponsorMemberId = sponsorId,
+            api = api,
+            onDismiss = { registerSponsor = null },
+            onRegistered = { refreshKey++ }
+        )
     }
 
     detailMember?.let { member ->
@@ -394,51 +420,130 @@ private fun CompactMemberCard(
     highlighted: Boolean,
     blinkAlpha: Float = 1f,
     serial: Int? = null,
-    cardScale: Float = 1f
+    cardScale: Float = 1f,
+    onNewJoin: () -> Unit = {}
 ) {
     val rankColor = remember(member.id, member.rank) { rankColorFor(member.rank, isRoot) }
     val baseDensity = LocalDensity.current
     CompositionLocalProvider(LocalDensity provides Density(baseDensity.density * cardScale, baseDensity.fontScale * cardScale)) {
-    Card(
-        modifier = modifier.graphicsLayer { alpha = if (highlighted) blinkAlpha else 1f }.clickable { onOpen() },
-        shape = RoundedCornerShape(11.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(if (isRoot || highlighted) 1.8.dp else 1.dp, if (highlighted) rankColor else if (isRoot) Color(0xFF6366F1) else Color(0xFFDDE5F0)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Box(Modifier.fillMaxSize().padding(horizontal = 6.dp, vertical = 5.dp)) {
-            Text(if (isRoot) "ROOT" else (serial?.toString() ?: "•"), Modifier.align(Alignment.TopStart).clip(RoundedCornerShape(5.dp)).background(Color(0xFFEAF0FF)).padding(horizontal = 5.dp, vertical = 2.dp), fontSize = 7.sp, color = Color(0xFF3443A5), fontWeight = FontWeight.Bold)
-            IconButton(onClick = onLines, modifier = Modifier.align(Alignment.TopEnd).size(20.dp)) { Icon(Icons.Default.Share, "Show team connections", tint = if (highlighted) rankColor else Color(0xFF64748B), modifier = Modifier.size(12.dp)) }
-            Column(Modifier.fillMaxWidth().padding(top = 15.dp, bottom = 20.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Top) {
-                Surface(color = rankColor, shape = RoundedCornerShape(20.dp), modifier = Modifier.widthIn(max = 112.dp)) {
-                    Text(member.rank.ifBlank { member.role.ifBlank { "DISTRIBUTOR" } }.uppercase(), Modifier.padding(horizontal = 5.dp, vertical = 2.dp), color = Color.White, fontSize = 6.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Card(
+            modifier = modifier.graphicsLayer { alpha = if (highlighted) blinkAlpha else 1f }.clickable { onOpen() },
+            shape = RoundedCornerShape(11.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            border = BorderStroke(if (isRoot || highlighted) 1.8.dp else 1.dp, if (highlighted) rankColor else if (isRoot) Color(0xFF6366F1) else Color(0xFFDDE5F0)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Box(Modifier.fillMaxSize().padding(horizontal = 6.dp, vertical = 5.dp)) {
+                Text(if (isRoot) "ROOT" else (serial?.toString() ?: "•"), Modifier.align(Alignment.TopStart).clip(RoundedCornerShape(5.dp)).background(Color(0xFFEAF0FF)).padding(horizontal = 5.dp, vertical = 2.dp), fontSize = 7.sp, color = Color(0xFF3443A5), fontWeight = FontWeight.Bold)
+                IconButton(onClick = onLines, modifier = Modifier.align(Alignment.TopEnd).size(20.dp)) { Icon(Icons.Default.Share, "Show team connections", tint = if (highlighted) rankColor else Color(0xFF64748B), modifier = Modifier.size(12.dp)) }
+                Column(Modifier.fillMaxWidth().padding(top = 15.dp, bottom = 20.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Top) {
+                    Surface(color = rankColor, shape = RoundedCornerShape(20.dp), modifier = Modifier.widthIn(max = 112.dp)) {
+                        Text(member.rank.ifBlank { member.role.ifBlank { "DISTRIBUTOR" } }.uppercase(), Modifier.padding(horizontal = 5.dp, vertical = 2.dp), color = Color.White, fontSize = 6.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    Spacer(Modifier.height(5.dp))
+                    Box(Modifier.size(26.dp).clip(RoundedCornerShape(8.dp)).background(rankColor), contentAlignment = Alignment.Center) {
+                        Text(member.name.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Black, fontSize = 13.sp)
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text(member.name, fontSize = 8.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF1E293B), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(member.memberId, fontSize = 7.sp, color = Color(0xFF64748B), maxLines = 1)
+                    val uplineName = member.parentName.ifBlank { member.sponsorName }
+                    val uplineId = member.parentMemberId.ifBlank { member.sponsorMemberId }
+                    if (uplineName.isNotBlank() || uplineId.isNotBlank()) {
+                        Surface(
+                            color = Color(0xFFF1F5FB),
+                            shape = RoundedCornerShape(5.dp),
+                            modifier = Modifier.padding(top = 2.dp)
+                        ) {
+                            Column(Modifier.fillMaxWidth().padding(horizontal = 5.dp, vertical = 3.dp)) {
+                                Text(
+                                    "Upline: ${uplineName.ifBlank { "—" }}",
+                                    fontSize = 6.sp,
+                                    color = Color(0xFF536783),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    "ID: ${uplineId.ifBlank { "—" }}",
+                                    fontSize = 6.sp,
+                                    color = Color(0xFF718198),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                    Text(member.phone.ifBlank { "-" }, fontSize = 6.sp, color = Color(0xFF8792A4), maxLines = 1)
+                    Spacer(Modifier.height(4.dp))
+                    Surface(color = if (member.status.equals("ACTIVE", true)) Color(0xFFE4F8EA) else Color(0xFFFFF0E8), shape = RoundedCornerShape(20.dp)) {
+                        Text(member.status.uppercase(), Modifier.padding(horizontal = 6.dp, vertical = 2.dp), fontSize = 6.sp, fontWeight = FontWeight.Bold, color = if (member.status.equals("ACTIVE", true)) Color(0xFF16834A) else Color(0xFFB66A20))
+                    }
+                    Text("${member.teamCount} Direct Members", fontSize = 6.sp, color = Color(0xFF64748B), modifier = Modifier.padding(top = 3.dp), maxLines = 1)
                 }
-                Spacer(Modifier.height(5.dp))
-                Box(Modifier.size(26.dp).clip(RoundedCornerShape(8.dp)).background(rankColor), contentAlignment = Alignment.Center) {
-                    Text(member.name.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Black, fontSize = 13.sp)
+                Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End) {
+                    Surface(Modifier.height(18.dp).clickable(onClick = onNewJoin), color = Color(0xFFE8F7EF), shape = RoundedCornerShape(6.dp)) {
+                        Row(Modifier.padding(horizontal=5.dp),verticalAlignment=Alignment.CenterVertically) {
+                            Icon(Icons.Default.PersonAddAlt1,null,Modifier.size(9.dp),tint=Color(0xFF16865B))
+                            Spacer(Modifier.width(2.dp))
+                            Text("New Join",fontSize=6.sp,fontWeight=FontWeight.Bold,color=Color(0xFF16865B))
+                        }
+                    }
+                    Spacer(Modifier.width(2.dp))
+                    IconButton(onClick = onInfo, modifier = Modifier.size(20.dp)) { Icon(Icons.Default.Info, "Member details", Modifier.size(12.dp), tint = Color(0xFF647CEB)) }
                 }
-                Spacer(Modifier.height(4.dp))
-                Text(member.name, fontSize = 8.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF1E293B), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(member.memberId, fontSize = 7.sp, color = Color(0xFF64748B), maxLines = 1)
-                if (!isRoot && member.parentMemberId.isNotBlank()) {
-                    Text("Under: ${member.parentMemberId}", fontSize = 6.sp, color = Color(0xFF64748B), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-                Text(member.phone.ifBlank { "-" }, fontSize = 6.sp, color = Color(0xFF8792A4), maxLines = 1)
-                Spacer(Modifier.height(4.dp))
-                Surface(color = if (member.status.equals("ACTIVE", true)) Color(0xFFE4F8EA) else Color(0xFFFFF0E8), shape = RoundedCornerShape(20.dp)) {
-                    Text(member.status.uppercase(), Modifier.padding(horizontal = 6.dp, vertical = 2.dp), fontSize = 6.sp, fontWeight = FontWeight.Bold, color = if (member.status.equals("ACTIVE", true)) Color(0xFF16834A) else Color(0xFFB66A20))
-                }
-                Text("${member.teamCount} Direct Members", fontSize = 6.sp, color = Color(0xFF64748B), modifier = Modifier.padding(top = 3.dp), maxLines = 1)
-            }
-            Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Surface(Modifier.weight(1f).height(18.dp).clickable(onClick = onOpen), color = Color(0xFFF5F7FF), shape = RoundedCornerShape(6.dp), border = BorderStroke(0.7.dp, Color(0xFFDCE4F5))) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) { Icon(Icons.Default.Groups, null, Modifier.size(10.dp), tint = Color(0xFF4053B5)); Spacer(Modifier.width(3.dp)); Text("View Team", fontSize = 7.sp, fontWeight = FontWeight.Bold, color = Color(0xFF4053B5)) }
-                }
-                Spacer(Modifier.width(4.dp))
-                IconButton(onClick = onInfo, modifier = Modifier.size(20.dp)) { Icon(Icons.Default.Info, "Member details", Modifier.size(12.dp), tint = Color(0xFF647CEB)) }
             }
         }
     }
+}
+
+@Composable
+private fun ClassicMemberRow(
+    member: UniMember,
+    isRoot: Boolean,
+    onOpen: () -> Unit,
+    onInfo: () -> Unit,
+    onNewJoin: () -> Unit
+) {
+    val tint=rankColorFor(member.rank,isRoot)
+    Card(
+        Modifier.fillMaxWidth().padding(bottom=5.dp).clickable(onClick=onOpen),
+        shape=RoundedCornerShape(15.dp),
+        colors=CardDefaults.cardColors(containerColor=Color.White),
+        border=BorderStroke(if(isRoot)1.5.dp else 0.8.dp,if(isRoot)Color(0xFF6366F1) else Color(0xFFDDE5F0)),
+        elevation=CardDefaults.cardElevation(1.dp)
+    ) {
+        Row(Modifier.fillMaxWidth().padding(10.dp),verticalAlignment=Alignment.CenterVertically) {
+            Box(Modifier.size(42.dp).clip(RoundedCornerShape(13.dp)).background(tint),contentAlignment=Alignment.Center) {
+                Text(member.name.take(1).uppercase(),color=Color.White,fontSize=19.sp,fontWeight=FontWeight.Bold)
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment=Alignment.CenterVertically) {
+                    Text(member.name,fontSize=12.sp,fontWeight=FontWeight.Bold,color=Color(0xFF172943),maxLines=1,overflow=TextOverflow.Ellipsis,modifier=Modifier.weight(1f))
+                    Surface(color=if(member.status.equals("ACTIVE",true))Color(0xFFE5F7EB) else Color(0xFFFFF1E9),shape=RoundedCornerShape(30.dp)) {
+                        Text(member.status.uppercase(),Modifier.padding(horizontal=6.dp,vertical=3.dp),fontSize=7.sp,fontWeight=FontWeight.Bold,color=if(member.status.equals("ACTIVE",true))Color(0xFF16834A) else Color(0xFFB66A20))
+                    }
+                }
+                Text("${member.rank.ifBlank{member.role}} • ${member.memberId}",fontSize=9.sp,color=Color(0xFF63728A),maxLines=1,overflow=TextOverflow.Ellipsis)
+                val uplineName = member.parentName.ifBlank { member.sponsorName }
+                val uplineId = member.parentMemberId.ifBlank { member.sponsorMemberId }
+                if (uplineName.isNotBlank() || uplineId.isNotBlank()) {
+                    Text(
+                        "Upline: ${uplineName.ifBlank { "—" }}  •  ID: ${uplineId.ifBlank { "—" }}",
+                        fontSize=8.sp,
+                        color=Color(0xFF8491A3),
+                        maxLines=1,
+                        overflow=TextOverflow.Ellipsis
+                    )
+                }
+            }
+            Column(horizontalAlignment=Alignment.End,verticalArrangement=Arrangement.spacedBy(3.dp)) {
+                IconButton(onClick=onInfo,modifier=Modifier.size(28.dp)){Icon(Icons.Default.Info,null,tint=Color(0xFF647CEB),modifier=Modifier.size(16.dp))}
+                TextButton(onClick=onNewJoin,contentPadding=PaddingValues(horizontal=5.dp,vertical=0.dp),modifier=Modifier.height(25.dp)) {
+                    Icon(Icons.Default.PersonAddAlt1,null,Modifier.size(11.dp),tint=Color(0xFF16865B));Spacer(Modifier.width(2.dp));Text("New Join",fontSize=8.sp,color=Color(0xFF16865B))
+                }
+            }
+        }
     }
 }
 
@@ -516,4 +621,164 @@ private fun parseUniMember(o: JsonObject): UniMember {
         teamCount = o.get("team_count")?.asInt ?: children.size,
         children = children
     )
+}
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun GenealogyRegisterDialog(
+    sponsorMemberId: String,
+    api: JoyMartApi,
+    onDismiss: () -> Unit,
+    onRegistered: () -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
+    var sponsorName by remember { mutableStateOf<String?>(null) }
+    var sponsorRole by remember { mutableStateOf<String?>(null) }
+    var roles by remember { mutableStateOf<List<AllowedRoleDto>>(emptyList()) }
+    var selectedRole by remember { mutableStateOf("") }
+    var roleExpanded by remember { mutableStateOf(false) }
+    var verifying by remember { mutableStateOf(false) }
+    var submitting by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var alert by remember { mutableStateOf<Pair<Boolean, String>?>(null) }
+    val scope = rememberCoroutineScope()
+
+    suspend fun verifySponsor() {
+        verifying = true
+        error = null
+        try {
+            val response = api.checkSponsor(sponsorMemberId)
+            val body = response.body()
+            if (response.isSuccessful && body?.success == true) {
+                sponsorName = body.sponsorName
+                sponsorRole = body.sponsorRole
+                roles = body.allowedRoles
+                selectedRole = roles.firstOrNull()?.name.orEmpty()
+                if (roles.isEmpty()) error = "এই Sponsor-এর অধীনে কোনো registration role available নেই।"
+            } else {
+                error = body?.message ?: response.errorBody()?.string()?.take(240) ?: "Sponsor ID verify করা যায়নি।"
+            }
+        } catch (e: Exception) {
+            error = e.message ?: "Network error. Please try again."
+        } finally {
+            verifying = false
+        }
+    }
+
+    LaunchedEffect(sponsorMemberId) { verifySponsor() }
+
+    Dialog(
+        onDismissRequest = { if (!submitting) onDismiss() },
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            Modifier.fillMaxWidth(.94f).heightIn(max = 680.dp),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White)
+        ) {
+            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(18.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("New Team Member",fontSize=19.sp,fontWeight=FontWeight.Bold,color=Color(0xFF172943))
+                        Text("Registration under selected member",fontSize=10.sp,color=Color.Gray)
+                    }
+                    IconButton(onClick={if(!submitting)onDismiss()}) { Icon(Icons.Default.Close,"Close") }
+                }
+                Spacer(Modifier.height(8.dp))
+                Card(shape=RoundedCornerShape(14.dp),colors=CardDefaults.cardColors(containerColor=Color(0xFFF0F7F8))) {
+                    Column(Modifier.fillMaxWidth().padding(12.dp)) {
+                        Text("SPONSOR / PARENT MEMBER ID",fontSize=9.sp,fontWeight=FontWeight.Bold,color=Color(0xFF66768A))
+                        Text(sponsorMemberId,fontSize=15.sp,fontWeight=FontWeight.Bold,color=Color(0xFF087F78))
+                        if (!sponsorName.isNullOrBlank()) Text("Sponsor: $sponsorName • ${sponsorRole.orEmpty()}",fontSize=10.sp,color=Color(0xFF16865B))
+                        else if (verifying) Row(verticalAlignment=Alignment.CenterVertically){CircularProgressIndicator(Modifier.size(13.dp),strokeWidth=2.dp);Spacer(Modifier.width(6.dp));Text("Verifying sponsor…",fontSize=10.sp,color=Color.Gray)}
+                        else TextButton(onClick={scope.launch{verifySponsor()}}){Text("Verify again",fontSize=10.sp)}
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(name,{name=it},Modifier.fillMaxWidth(),label={Text("Full name *")},singleLine=true,shape=RoundedCornerShape(12.dp))
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(phone,{phone=it},Modifier.fillMaxWidth(),label={Text("Phone number *")},singleLine=true,shape=RoundedCornerShape(12.dp),keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Phone))
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(email,{email=it},Modifier.fillMaxWidth(),label={Text("Email (optional)")},singleLine=true,shape=RoundedCornerShape(12.dp),keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Email))
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(password,{password=it},Modifier.fillMaxWidth(),label={Text("Password *")},singleLine=true,shape=RoundedCornerShape(12.dp),visualTransformation=PasswordVisualTransformation())
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(confirmPassword,{confirmPassword=it},Modifier.fillMaxWidth(),label={Text("Confirm password *")},singleLine=true,shape=RoundedCornerShape(12.dp),visualTransformation=PasswordVisualTransformation())
+                Spacer(Modifier.height(10.dp))
+                Text("BUSINESS ROLE *",fontSize=10.sp,fontWeight=FontWeight.Bold,color=Color(0xFF53647D))
+                Box {
+                    OutlinedButton(onClick={roleExpanded=true},enabled=roles.isNotEmpty(),modifier=Modifier.fillMaxWidth()) {
+                        Text(roles.firstOrNull{it.name==selectedRole}?.displayName ?: "Select allowed role",Modifier.weight(1f))
+                        Icon(Icons.Default.ArrowDropDown,null)
+                    }
+                    DropdownMenu(expanded=roleExpanded,onDismissRequest={roleExpanded=false}) {
+                        roles.forEach { role ->
+                            DropdownMenuItem(text={Text(role.displayName.ifBlank{role.name})},onClick={selectedRole=role.name;roleExpanded=false})
+                        }
+                    }
+                }
+                if (!error.isNullOrBlank()) {
+                    Card(Modifier.fillMaxWidth().padding(top=9.dp),shape=RoundedCornerShape(12.dp),colors=CardDefaults.cardColors(containerColor=Color(0xFFFFF0EF))) {
+                        Row(Modifier.padding(10.dp),verticalAlignment=Alignment.CenterVertically) {
+                            Icon(Icons.Default.Warning,null,tint=Color(0xFFB83C36),modifier=Modifier.size(17.dp))
+                            Spacer(Modifier.width(7.dp))
+                            Text(error.orEmpty(),fontSize=10.sp,color=Color(0xFF9F3028))
+                        }
+                    }
+                }
+                Spacer(Modifier.height(14.dp))
+                Button(
+                    onClick={
+                        when {
+                            sponsorName.isNullOrBlank() || roles.isEmpty() || selectedRole.isBlank() -> error="Sponsor verify না হওয়া পর্যন্ত registration করা যাবে না।"
+                            name.isBlank() || phone.isBlank() || password.length<6 || password!=confirmPassword -> error="নাম, ফোন এবং matching password (কমপক্ষে ৬ অক্ষর) দিন।"
+                            else -> scope.launch {
+                                submitting=true; error=null
+                                try {
+                                    val response=api.registerMember(RegisterRequest(name.trim(),phone.trim(),email.trim().takeIf{it.isNotBlank()},password,confirmPassword,sponsorMemberId,selectedRole))
+                                    val body=response.body()
+                                    if(response.isSuccessful && (body?.success==true || body?.status==true)) {
+                                        name="";phone="";email="";password="";confirmPassword=""
+                                        alert=true to (body.message ?: "Member registration successful.")
+                                        onRegistered()
+                                    } else {
+                                        val msg=body?.message ?: response.errorBody()?.string()?.take(260) ?: "Registration failed."
+                                        error=msg
+                                        alert=false to msg
+                                    }
+                                } catch(e:Exception) {
+                                    val msg=e.message ?: "Network error. Please try again."
+                                    error=msg
+                                    alert=false to msg
+                                } finally { submitting=false }
+                            }
+                        }
+                    },
+                    enabled=!submitting && !verifying && roles.isNotEmpty(),
+                    modifier=Modifier.fillMaxWidth().height(48.dp),
+                    shape=RoundedCornerShape(13.dp)
+                ) {
+                    if(submitting) CircularProgressIndicator(Modifier.size(18.dp),color=Color.White,strokeWidth=2.dp)
+                    else { Icon(Icons.Default.PersonAddAlt1,null,Modifier.size(17.dp));Spacer(Modifier.width(7.dp));Text("Complete Registration",fontWeight=FontWeight.Bold) }
+                }
+                Text("Error হলে এই form open থাকবে। নিজে Close করলে তবেই বন্ধ হবে।",fontSize=9.sp,color=Color.Gray,modifier=Modifier.padding(top=8.dp))
+            }
+        }
+    }
+
+    alert?.let { (success, message) ->
+        AlertDialog(
+            onDismissRequest={alert=null},
+            icon={Icon(if(success)Icons.Default.CheckCircle else Icons.Default.Error,null,tint=if(success)Color(0xFF16865B) else Color(0xFFBD4545))},
+            title={Text(if(success)"Registration successful" else "Registration failed")},
+            text={Text(message,fontSize=13.sp)},
+            confirmButton={TextButton(onClick={alert=null}){Text("OK")}},
+            shape=RoundedCornerShape(20.dp)
+        )
+    }
 }
