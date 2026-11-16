@@ -54,10 +54,10 @@ com.joymart.llp.app-lifecycle-process-2.8.7-52 C:\Users\jm103771\.gradle\caches\
 com.joymart.llp.app-graphics-path-1.0.1-53 C:\Users\jm103771\.gradle\caches\8.9\transforms\f20a1997074724b7156eff7f2a2bc541\transformed\graphics-path-1.0.1\res
 com.joymart.llp.app-security-crypto-1.1.0-alpha06-54 C:\Users\jm103771\.gradle\caches\8.9\transforms\f336495710cd1773dccb8378f9cee6bb\transformed\security-crypto-1.1.0-alpha06\res
 com.joymart.llp.app-material-icons-core-release-55 C:\Users\jm103771\.gradle\caches\8.9\transforms\fce0ef4e62460543b28bf25ef8d5f802\transformed\material-icons-core-release\res
-com.joymart.llp.app-pngs-56 D:\JOY\JoyMartLLP Project\JoyMartLLP\JoyMartLLP\app\build\generated\res\pngs\debug
-com.joymart.llp.app-resValues-57 D:\JOY\JoyMartLLP Project\JoyMartLLP\JoyMartLLP\app\build\generated\res\resValues\debug
-com.joymart.llp.app-packageDebugResources-58 D:\JOY\JoyMartLLP Project\JoyMartLLP\JoyMartLLP\app\build\intermediates\incremental\debug\packageDebugResources\merged.dir
-com.joymart.llp.app-packageDebugResources-59 D:\JOY\JoyMartLLP Project\JoyMartLLP\JoyMartLLP\app\build\intermediates\incremental\debug\packageDebugResources\stripped.dir
-com.joymart.llp.app-debug-60 D:\JOY\JoyMartLLP Project\JoyMartLLP\JoyMartLLP\app\build\intermediates\merged_res\debug\mergeDebugResources
-com.joymart.llp.app-debug-61 D:\JOY\JoyMartLLP Project\JoyMartLLP\JoyMartLLP\app\src\debug\res
-com.joymart.llp.app-main-62 D:\JOY\JoyMartLLP Project\JoyMartLLP\JoyMartLLP\app\src\main\res
+com.joymart.llp.app-pngs-56 D:\JOY\JoyMartLLP Project\JoyMartLLP\app\build\generated\res\pngs\debug
+com.joymart.llp.app-resValues-57 D:\JOY\JoyMartLLP Project\JoyMartLLP\app\build\generated\res\resValues\debug
+com.joymart.llp.app-packageDebugResources-58 D:\JOY\JoyMartLLP Project\JoyMartLLP\app\build\intermediates\incremental\debug\packageDebugResources\merged.dir
+com.joymart.llp.app-packageDebugResources-59 D:\JOY\JoyMartLLP Project\JoyMartLLP\app\build\intermediates\incremental\debug\packageDebugResources\stripped.dir
+com.joymart.llp.app-debug-60 D:\JOY\JoyMartLLP Project\JoyMartLLP\app\build\intermediates\merged_res\debug\mergeDebugResources
+com.joymart.llp.app-debug-61 D:\JOY\JoyMartLLP Project\JoyMartLLP\app\src\debug\res
+com.joymart.llp.app-main-62 D:\JOY\JoyMartLLP Project\JoyMartLLP\app\src\main\res

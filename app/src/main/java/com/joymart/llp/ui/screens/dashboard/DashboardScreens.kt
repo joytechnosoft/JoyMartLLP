@@ -31,11 +31,12 @@ import com.joymart.llp.ui.screens.membership.MembershipScreen
 import com.joymart.llp.ui.screens.data.GenealogyScreen
 import com.joymart.llp.ui.screens.data.ErpWebScreen
 import com.joymart.llp.ui.screens.wallet.WalletScreen
-import com.joymart.llp.ui.screens.wallet.TransactionScreen
 import com.joymart.llp.ui.screens.catalog.*
 import com.google.gson.JsonParser
 import com.joymart.llp.ui.screens.finance.EarningsScreen
 import com.joymart.llp.ui.screens.finance.NativeTransactionsScreen
+import com.joymart.llp.ui.screens.admin.AdminOrderApprovalsScreen
+import com.joymart.llp.ui.components.MoneyFormatter
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun MainShell(user:UserDto,isAdmin:Boolean,page:String,onNavigate:(String)->Unit,onLogout:()->Unit,api:JoyMartApi) {
     val drawerState=rememberDrawerState(DrawerValue.Closed); val scope=rememberCoroutineScope()
@@ -47,7 +48,9 @@ import com.joymart.llp.ui.screens.finance.NativeTransactionsScreen
             EarningsScreen(api)
         }
 
-            "wallet-transactions" -> Box(Modifier.padding(padding)) { NativeTransactionsScreen(api) } "profile"->Box(Modifier.padding(padding)){ProfileScreen(user,isAdmin,{onNavigate("register")},{onNavigate("membership")})};"membership"->Box(Modifier.padding(padding)){MembershipScreen(user,api){onNavigate("home")}};"wallet"->Box(Modifier.padding(padding)){WalletScreen(api){onNavigate(it)}};"referrals","team"->Box(Modifier.padding(padding)){GenealogyScreen(api){onNavigate("register")}};"notifications"->Box(Modifier.padding(padding)){GenericApiScreen("notifications",user,api)};"vr-packages"->Box(Modifier.padding(padding)){VrindabanPackagesScreen(api)};"vr-products"->Box(Modifier.padding(padding)){VrindabanProductsScreen(api)};"vr-categories"->Box(Modifier.padding(padding)){VrindabanCategoriesScreen(api)};"erp-shop"->Box(Modifier.padding(padding)){ErpWebScreen{onNavigate("home")}};else->if(page=="home")
+            "wallet-transactions" -> Box(Modifier.padding(padding)) { NativeTransactionsScreen(api) }
+            "approvals" -> Box(Modifier.padding(padding)) { if (isAdmin) AdminOrderApprovalsScreen(api) else GenericApiScreen("approvals", user, api) }
+            "profile"->Box(Modifier.padding(padding)){ProfileScreen(user,isAdmin,{onNavigate("register")},{onNavigate("membership")})};"membership"->Box(Modifier.padding(padding)){MembershipScreen(user,api){onNavigate("home")}};"wallet"->Box(Modifier.padding(padding)){WalletScreen(api){onNavigate(it)}};"referrals","team"->Box(Modifier.padding(padding)){GenealogyScreen(api){onNavigate("register")}};"notifications"->Box(Modifier.padding(padding)){GenericApiScreen("notifications",user,api)};"vr-packages"->Box(Modifier.padding(padding)){VrindabanPackagesScreen(api)};"vr-products"->Box(Modifier.padding(padding)){VrindabanProductsScreen(api)};"vr-categories"->Box(Modifier.padding(padding)){VrindabanCategoriesScreen(api)};"erp-shop"->Box(Modifier.padding(padding)){ErpWebScreen{onNavigate("home")}};else->if(page=="home")
                 DashboardScreen(
                     user = user,
                     isAdmin = isAdmin,
@@ -117,7 +120,7 @@ private fun JoyMartDrawer(user:UserDto,isAdmin:Boolean,current:String,onNavigate
             Column(Modifier.weight(1f)) {
                 Text(user.name,color=Color.White,fontWeight=FontWeight.Bold,fontSize=13.sp,maxLines=1)
                 Text(if(isAdmin)"DIRECTOR / ADMIN" else role.replaceFirstChar{it.uppercase()},color=Color(0xFF9DE5D9),fontSize=10.sp)
-                Text("ID: ${user.memberId ?: user.id}",color=Color(0xFF9BAEC7),fontSize=9.sp)
+                Text("Member ID: ${user.memberId?.takeIf { it.isNotBlank() } ?: "—"}",color=Color(0xFF9BAEC7),fontSize=9.sp)
             }
         }
         HorizontalDivider(color=Color.White.copy(.10f))
@@ -244,31 +247,21 @@ fun DashboardScreen(   user: UserDto,
     var customize by remember { mutableStateOf(false) }
     val selectedActions = selectedKeys.mapNotNull { key -> actions.firstOrNull { it.key == key } }
     val role = (user.roleMaster?.displayName ?: user.role ?: "Member").replaceFirstChar { it.uppercase() }
-    var liveWalletBalance by remember(user.id) { mutableStateOf<String?>(null) }
-    var walletBalanceLoading by remember(user.id) { mutableStateOf(true) }
-    LaunchedEffect(user.id) {
-        walletBalanceLoading = true
-        try {
-            val response = api.getRaw("wallet")
-            if (response.isSuccessful) {
-                val root = JsonParser.parseString(response.body()?.toString() ?: "{}").asJsonObject
-                val data = root.getAsJsonObject("data")
-                if (root.get("success")?.asBoolean == true && data?.has("balance") == true && data.get("balance") != null && !data.get("balance").isJsonNull) {
-                    val amount = data.get("balance").asBigDecimal.setScale(2, java.math.RoundingMode.HALF_UP)
-                    liveWalletBalance = amount.toPlainString()
-                }
-            }
-        } catch (_: Exception) {
-            // Keep the live balance unavailable rather than showing a potentially stale profile value as current.
-        } finally { walletBalanceLoading = false }
-    }
-    val walletDisplay = when {
-        liveWalletBalance != null -> "₹${liveWalletBalance}"
-        walletBalanceLoading -> "Loading…"
-        else -> "Unavailable"
-    }
     var membershipActive by remember(user.id) {
         mutableStateOf(user.isActiveMember == 1)
+    }
+    var liveWalletBalance by remember(user.id) { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(user.id) {
+        runCatching { api.getRaw("wallet") }.onSuccess { response ->
+            if (response.isSuccessful) {
+                val root = runCatching { JsonParser.parseString(response.body()?.toString() ?: "{}").asJsonObject }.getOrNull()
+                val data = root?.getAsJsonObject("data") ?: root
+                val wallet = data?.getAsJsonObject("wallet")
+                liveWalletBalance = data?.get("balance")?.takeUnless { it.isJsonNull }?.toString()?.trim('"')
+                    ?: wallet?.get("available_balance")?.takeUnless { it.isJsonNull }?.toString()?.trim('"')
+            }
+        }
     }
 
     var pendingOrder by remember(user.id) {
@@ -363,7 +356,7 @@ fun DashboardScreen(   user: UserDto,
                         }
                         Column {
                             Text("Wallet",color=Color.White.copy(.68f),fontSize=10.sp)
-                            Text(walletDisplay,color=Color.White,fontSize=14.sp,fontWeight=FontWeight.SemiBold)
+                            Text(MoneyFormatter.inr(liveWalletBalance ?: user.walletBalance),color=Color.White,fontSize=14.sp,fontWeight=FontWeight.SemiBold,maxLines=1,overflow=TextOverflow.Ellipsis)
                         }
                     }
                 }
@@ -372,7 +365,7 @@ fun DashboardScreen(   user: UserDto,
 
         item {
             val statItems = listOf(
-                Triple("Wallet balance",walletDisplay,Icons.Default.AccountBalanceWallet),
+                Triple("Wallet balance",MoneyFormatter.inr(liveWalletBalance ?: user.walletBalance),Icons.Default.AccountBalanceWallet),
                 Triple("Membership",if(membershipActive)"ACTIVE" else "CHECK STATUS",Icons.Default.CardMembership),
                 Triple("Member ID",user.memberId ?: "—",Icons.Default.Badge),
                 Triple("Referral code",user.referralCode ?: "—",Icons.Default.Share)

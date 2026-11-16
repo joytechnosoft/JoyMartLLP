@@ -102,7 +102,7 @@ private fun parseCards(root:JsonElement?):List<DataCard>{
         if(!element.isJsonObject)return@mapIndexedNotNull null
         val obj=element.asJsonObject
         val fields=buildList {
-            obj.entrySet().filter{it.key !in setOf("success","message","data")}.forEach{(key,value)->
+            obj.entrySet().filter{it.key !in setOf("success","message","data","id","user_id","receiver_user_id","source_user_id","approved_by","created_by","updated_by")}.forEach{(key,value)->
                 if(value.isJsonObject){
                     value.asJsonObject.entrySet().take(4).forEach{(childKey,childValue)->
                         if(!childValue.isJsonNull && !childValue.isJsonObject && !childValue.isJsonArray) add((key+" "+childKey) to childValue.asStringOrValue())

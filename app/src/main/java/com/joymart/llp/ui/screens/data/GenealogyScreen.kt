@@ -1,6 +1,7 @@
 package com.joymart.llp.ui.screens.data
 
 import com.joymart.llp.ui.components.friendlyNetworkError
+import com.joymart.llp.ui.components.MemberCallButton
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -385,7 +386,7 @@ fun GenealogyScreen(api: JoyMartApi, onRegister: () -> Unit = {}) {
         AlertDialog(onDismissRequest = { detailMember = null }, icon = { Icon(Icons.Default.Info, null, tint = Color(0xFF1769D2)) }, title = { Text("Member Details") },
             text = { Column(Modifier.verticalScroll(rememberScrollState())) {
                 DetailLine("Name", member.name); DetailLine("Member ID", member.memberId); DetailLine("Designation", member.role); DetailLine("Rank", member.rank)
-                DetailLine("Phone", member.phone); DetailLine("Email", member.email); DetailLine("Referral Code", member.referralCode); DetailLine("Status", member.status)
+                DetailLine("Phone", member.phone); MemberCallButton(member.phone, Modifier.fillMaxWidth()); DetailLine("Email", member.email); DetailLine("Referral Code", member.referralCode); DetailLine("Status", member.status)
                 DetailLine("Joined", member.joinedAt); DetailLine("Sponsor", member.sponsorName); DetailLine("Sponsor Member ID", member.sponsorMemberId)
                 DetailLine("Parent", member.parentName); DetailLine("Parent Member ID", member.parentMemberId); DetailLine("Direct Team", member.teamCount.toString())
             } }, confirmButton = { TextButton(onClick = { detailMember = null }) { Text("Close") } })

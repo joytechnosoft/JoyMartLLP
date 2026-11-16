@@ -1,11 +1,22 @@
-JOY MART ANDROID FULL PROJECT
+JoyMart LLP Android — Full Project (assembled from latest supplied Android source)
 
-১) ZIP Extract করুন।
-২) Android Studio > Open > JoyMartLLP_Android_Full_Project folder select করুন।
-৩) JDK 17 এবং Android SDK Platform 35 install থাকতে হবে।
-৪) app/build.gradle.kts-এ API_BASE_URL আপনার server-এর https://YOUR-DOMAIN/api/native/v1/ দিন।
-৫) Gradle Sync > Build > Make Project করুন।
+1) Extract the complete ZIP.
+2) Open the JoyMartLLP_Android_Full_Project folder in Android Studio.
+3) Wait for Gradle sync; use JDK 17.
+4) Check app/build.gradle.kts API_BASE_URL and confirm it matches your production Native API base URL.
+5) Run first on a staging/test account.
 
-এই package-এ main.zip-এর সর্বশেষ source, compact Genealogy update এবং Wallet/Transactions screen একত্র করা হয়েছে। Laravel/server-এর কোনো file নেই; server পরিবর্তন হবে না।
+Included:
+- Full Android Studio Gradle project structure and resources from the supplied complete project archive.
+- Latest Kotlin source files from the supplied joymart.zip.
+- Admin Membership + Software approval screen wired to the admin-only Approvals navigation item.
+- Shared IST date/time formatter for approval timestamps.
+- Duplicate wallet-transactions route removed; NativeTransactionsScreen is the single route.
+- Existing ERP WebView, authentication, registration, membership, wallet, finance, genealogy, catalog, profile and dashboard source retained from the latest supplied source ZIP.
 
-নোট: মূল upload-এ gradle-wrapper.jar ছিল না। তাই gradlew scripts প্রথমবার official Gradle 8.9 download করে চালাবে; internet লাগবে। এখানে Android SDK না থাকায় APK build test করা সম্ভব হয়নি।
+Important:
+- This is an Android project package. It does not include the Laravel server source or database dump.
+- No database balance, commission, subscription or production data is modified by this Android package.
+- Approval actions call the existing native API endpoints; validate on staging with test membership/software orders before production.
+- Gradle build/emulator verification was not possible in the file assembly environment. Run Sync/Rebuild in Android Studio and share the first compiler error if any.
+- Do not overwrite your working project without making a backup or committing it to Git first.

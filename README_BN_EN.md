@@ -51,3 +51,22 @@ The included `gradlew` script downloads Gradle 8.9 on first use if it is not alr
 - Kotlin parser syntax check was run on the complete source tree; no parser-level syntax errors were reported.
 - A full Android Gradle build could not be completed in this environment because `services.gradle.org` could not be resolved. Please run Gradle Sync/Rebuild in Android Studio and share the complete Build Output if it reports any remaining compiler errors.
 - Live API/domain reachability and account login were not tested here.
+
+
+## Dashboard / Web-parity UX update
+- Dashboard now follows the Core Website's structure more closely: business hero, account snapshot cards, Quick Access, workspace tool groups, and account/profile section.
+- Quick Access shortcuts are user-customizable (up to 8), saved locally per signed-in user, and can be added or removed from the Customize dialog.
+- The navigation drawer is grouped into My JoyMart, Distributor, Director/Admin, Vrindaban, and ERP Workspace.
+- Existing screens/routes are retained; the dashboard shortcut list only uses routes already present in the supplied Laravel API source.
+
+## Login field behavior
+- Invalid credentials and network errors now keep the entered login ID and password in place, so the user can correct a typo without retyping both fields.
+- Logout/session expiry still returns to Login as expected.
+
+## Existing API coverage note
+The supplied Laravel source has no Native API endpoint for the Core Website's personal Earnings page. This Android update does not invent an endpoint or show fake earnings. The Earnings module must be exposed by the server before it can be connected with exact Website parity. The same applies to any website-only feature that has no existing API route.
+
+## Changed Kotlin files in this dashboard update
+- `app/src/main/java/com/joymart/llp/ui/screens/dashboard/DashboardScreens.kt`
+- `app/src/main/java/com/joymart/llp/ui/screens/data/GenericApiScreen.kt`
+- `app/src/main/java/com/joymart/llp/app/JoyMartApp.kt`

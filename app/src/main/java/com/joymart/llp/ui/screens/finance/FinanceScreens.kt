@@ -22,6 +22,7 @@ import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.joymart.llp.data.JoyMartApi
+import com.joymart.llp.ui.components.MemberCallButton
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -477,6 +478,7 @@ fun EarningsScreen(api: JoyMartApi) {
                     FinanceDetail("Source member", item.str("source_name", "—"))
                     FinanceDetail("Member ID", item.str("source_member_id", "—"))
                     FinanceDetail("Phone", item.str("source_phone", "—"))
+                    MemberCallButton(item.str("source_phone"), Modifier.fillMaxWidth())
                     FinanceDetail("Source role", item.str("source_role", "—"))
                     FinanceDetail("Commission level", item.str("commission_level", "—"))
                     FinanceDetail("Rate", "${item.str("percentage", "—")}%")
@@ -504,7 +506,7 @@ fun EarningsScreen(api: JoyMartApi) {
 fun NativeTransactionsScreen(api: JoyMartApi) {
     val scope = rememberCoroutineScope()
 
-    var tab by remember { mutableStateOf("WALLET") }
+    var tab by remember { mutableStateOf("ALL") }
     var loading by remember { mutableStateOf(true) }
     var loadingMore by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -512,6 +514,8 @@ fun NativeTransactionsScreen(api: JoyMartApi) {
     var walletBalance by remember { mutableDoubleStateOf(0.0) }
     var walletHistory by remember { mutableStateOf<List<JsonObject>>(emptyList()) }
     var businessTransactions by remember { mutableStateOf<List<JsonObject>>(emptyList()) }
+    var earningTransactions by remember { mutableStateOf<List<JsonObject>>(emptyList()) }
+    var allTransactions by remember { mutableStateOf<List<JsonObject>>(emptyList()) }
 
     var businessPage by remember { mutableIntStateOf(1) }
     var businessLastPage by remember { mutableIntStateOf(1) }
@@ -589,27 +593,98 @@ fun NativeTransactionsScreen(api: JoyMartApi) {
         }
     }
 
+    suspend fun loadAllTransactions() {
+        loading = true
+        error = null
+        try {
+            val walletResponse = api.getRaw("wallet")
+            val businessResponse = api.getRaw("transactions?page=1")
+            val earningsResponse = api.getRaw("earnings")
+            if (!walletResponse.isSuccessful || !businessResponse.isSuccessful || !earningsResponse.isSuccessful) {
+                error = "Some transaction sources could not be loaded. Please refresh."
+            }
+            val walletRows = if (walletResponse.isSuccessful) {
+                val root = JsonParser.parseString(walletResponse.body()?.toString() ?: "{}").asJsonObject
+                val data = root.obj("data") ?: JsonObject()
+                walletBalance = data.money("balance")
+                data.array("history").mapNotNull { it.asObjectOrNull() }.onEach { it.addProperty("_source_tab", "WALLET") }
+            } else emptyList()
+            val businessRows = if (businessResponse.isSuccessful) {
+                val root = JsonParser.parseString(businessResponse.body()?.toString() ?: "{}").asJsonObject
+                val paginator = root.obj("transactions") ?: JsonObject()
+                businessPage = paginator.get("current_page")?.takeUnless { it.isJsonNull }?.asInt ?: 1
+                businessLastPage = paginator.get("last_page")?.takeUnless { it.isJsonNull }?.asInt ?: 1
+                paginator.array("data").mapNotNull { it.asObjectOrNull() }.onEach { it.addProperty("_source_tab", "BUSINESS") }
+            } else emptyList()
+            val commissionRows = if (earningsResponse.isSuccessful) {
+                val root = JsonParser.parseString(earningsResponse.body()?.toString() ?: "{}").asJsonObject
+                val data = root.obj("data") ?: JsonObject()
+                data.array("commissions").mapNotNull { element ->
+                    val original = element.asObjectOrNull() ?: return@mapNotNull null
+                    val row = original.deepCopy()
+                    val commissionAmount = row.get("commission_amount")?.takeUnless { it.isJsonNull }?.toString()
+                        ?: row.get("amount")?.takeUnless { it.isJsonNull }?.toString() ?: "0"
+                    row.addProperty("amount", commissionAmount.trim('"'))
+                    row.addProperty("type", "COMMISSION_CREDIT")
+                    row.addProperty("description", row.str("source_name", "Commission earned"))
+                    row.addProperty("status", "PAID")
+                    row.addProperty("_source_tab", "EARNINGS")
+                    row
+                }
+            } else emptyList()
+            earningTransactions = commissionRows
+            walletHistory = walletRows
+            businessTransactions = businessRows
+            // Avoid displaying the same commission twice when a wallet ledger row already references it.
+            val walletCommissionRefs = walletRows.mapNotNull { row ->
+                val type = row.str("type").uppercase()
+                if (type.contains("COMMISSION")) row.str("reference_id").ifBlank { row.str("reference") }.takeIf { it.isNotBlank() } else null
+            }.toSet()
+            val uniqueCommissions = commissionRows.filter { row ->
+                val id = row.str("id").ifBlank { row.str("commission_id") }
+                id.isBlank() || id !in walletCommissionRefs
+            }
+            allTransactions = (walletRows + businessRows + uniqueCommissions).sortedByDescending {
+                it.str("created_at")
+            }
+        } catch (e: Exception) {
+            error = "Unable to load all transaction sources. Check your connection and retry."
+        } finally {
+            loading = false
+        }
+    }
+
     suspend fun refreshCurrent() {
-        if (tab == "WALLET") loadWallet()
-        else loadBusinessTransactions(reset = true)
+        when (tab) {
+            "WALLET" -> loadWallet()
+            "BUSINESS" -> loadBusinessTransactions(reset = true)
+            else -> loadAllTransactions()
+        }
     }
 
     LaunchedEffect(tab) {
         filter = "ALL"
         search = ""
-        if (tab == "WALLET") loadWallet()
-        else loadBusinessTransactions(reset = true)
+        when (tab) {
+            "WALLET" -> loadWallet()
+            "BUSINESS" -> loadBusinessTransactions(reset = true)
+            else -> loadAllTransactions()
+        }
     }
 
-    val sourceRows = if (tab == "WALLET") walletHistory else businessTransactions
+    val sourceRows = when (tab) {
+        "WALLET" -> walletHistory
+        "BUSINESS" -> businessTransactions
+        else -> allTransactions
+    }
 
     val filtered = sourceRows.filter { item ->
         val type = item.str("type").uppercase()
         val status = item.str("status").uppercase()
 
         val isCredit = when {
-            type == "CREDIT" || type == "TRANSFER_CREDIT" -> true
-            type == "DEBIT" || type == "TRANSFER_DEBIT" -> false
+            type.contains("CREDIT") || type.contains("EARNING") || type.contains("COMMISSION") -> true
+            type.contains("DEBIT") || type.contains("WITHDRAW") || type.contains("PURCHASE") -> false
             else -> item.money("amount") >= 0.0 && type.contains("CREDIT")
         }
 
@@ -640,8 +715,11 @@ fun NativeTransactionsScreen(api: JoyMartApi) {
     Column(Modifier.fillMaxSize().background(financeBg)) {
         FinanceHeader(
             "Transactions",
-            if (tab == "WALLET") "Wallet ledger and funding requests"
-            else "Business transaction records",
+            when (tab) {
+                "WALLET" -> "Wallet ledger and funding requests"
+                "BUSINESS" -> "Business transaction records"
+                else -> "Wallet, earnings and business activity"
+            },
             { scope.launch { refreshCurrent() } },
             loading
         )
@@ -650,6 +728,12 @@ fun NativeTransactionsScreen(api: JoyMartApi) {
             Modifier.fillMaxWidth().padding(horizontal = 15.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            FilterChip(
+                selected = tab == "ALL",
+                onClick = { tab = "ALL" },
+                label = { Text("All Transactions", fontSize = 11.sp) },
+                leadingIcon = { Icon(Icons.Default.SwapVert, null, Modifier.size(16.dp)) }
+            )
             FilterChip(
                 selected = tab == "WALLET",
                 onClick = { tab = "WALLET" },
@@ -678,7 +762,7 @@ fun NativeTransactionsScreen(api: JoyMartApi) {
                 ),
                 verticalArrangement = Arrangement.spacedBy(11.dp)
             ) {
-                if (tab == "WALLET") {
+                if (tab == "WALLET" || tab == "ALL") {
                     item {
                         Card(
                             Modifier.fillMaxWidth(),
@@ -699,7 +783,7 @@ fun NativeTransactionsScreen(api: JoyMartApi) {
                                     fontWeight = FontWeight.ExtraBold
                                 )
                                 Text(
-                                    "${walletHistory.size} wallet and funding records",
+                                    "${if (tab == "ALL") allTransactions.size else walletHistory.size} total records",
                                     color = Color.White.copy(.7f),
                                     fontSize = 10.sp
                                 )
@@ -741,8 +825,8 @@ fun NativeTransactionsScreen(api: JoyMartApi) {
                         singleLine = true,
                         placeholder = {
                             Text(
-                                if (tab == "WALLET") "Search transaction ID, UTR or description"
-                                else "Search reference, purpose or status"
+                                if (tab == "BUSINESS") "Search reference, purpose or status"
+                                else "Search transaction ID, UTR, member or description"
                             )
                         },
                         leadingIcon = { Icon(Icons.Default.Search, null) },
@@ -786,7 +870,7 @@ fun NativeTransactionsScreen(api: JoyMartApi) {
                 item {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            if (tab == "WALLET") "Wallet history" else "Business history",
+                            when (tab) { "WALLET" -> "Wallet history"; "BUSINESS" -> "Business history"; else -> "All financial activity" },
                             Modifier.weight(1f),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
@@ -832,8 +916,9 @@ fun NativeTransactionsScreen(api: JoyMartApi) {
                     val status = item.str("status", "COMPLETED").uppercase()
                     val type = item.str("type", "TRANSACTION").uppercase()
 
-                    val isCredit = type == "CREDIT" || type == "TRANSFER_CREDIT" ||
-                            (tab == "BUSINESS" && type.contains("CREDIT"))
+                    val sourceTab = item.str("_source_tab", tab)
+                    val isCredit = type.contains("CREDIT") || type.contains("EARNING") ||
+                            type.contains("COMMISSION") || (sourceTab == "BUSINESS" && type.contains("CREDIT"))
                     val isFunding = item.str("source") == "funding_request" ||
                             type == "FUNDING"
 
@@ -872,8 +957,8 @@ fun NativeTransactionsScreen(api: JoyMartApi) {
                                 Column(Modifier.weight(1f)) {
                                     Text(
                                         item.str(
-                                            if (tab == "WALLET") "description" else "purpose",
-                                            "Wallet transaction"
+                                            if (sourceTab == "BUSINESS") "purpose" else "description",
+                                            if (sourceTab == "EARNINGS") "Commission earned" else "Wallet transaction"
                                         ),
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold,
@@ -966,16 +1051,16 @@ fun NativeTransactionsScreen(api: JoyMartApi) {
     }
 
     selected?.let { item ->
-        val isWallet = tab == "WALLET"
+        val isWallet = item.str("_source_tab", tab) != "BUSINESS"
         AlertDialog(
             onDismissRequest = { selected = null },
-            title = { Text(if (isWallet) "Wallet transaction details" else "Business transaction details") },
+            title = { Text(if (item.str("_source_tab", tab) == "EARNINGS") "Commission details" else if (isWallet) "Wallet transaction details" else "Business transaction details") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (isWallet) {
                         FinanceDetail("Transaction ID", item.str("trx_id", "—"))
                         FinanceDetail("Type", item.str("type", "—"))
-                        FinanceDetail("Description", item.str("description", "—"))
+                        FinanceDetail("Description", item.str("description", item.str("source_name", "—")))
                         FinanceDetail("Amount", formatMoney(item.money("amount")))
                         FinanceDetail(
                             "Balance after",
@@ -987,6 +1072,11 @@ fun NativeTransactionsScreen(api: JoyMartApi) {
                         FinanceDetail("UTR / Reference", item.str("transaction_reference", "—"))
                         FinanceDetail("Status", item.str("status", "—"))
                         FinanceDetail("Admin remarks", item.str("admin_remarks", "—"))
+                        if (item.str("_source_tab") == "EARNINGS") {
+                            FinanceDetail("Member", item.str("source_name", "—"))
+                            FinanceDetail("Member ID", item.str("source_member_id", "—"))
+                            FinanceDetail("Commission remarks", item.str("remarks", "—"))
+                        }
                         FinanceDetail("Date", item.str("created_at", "—"))
                     } else {
                         FinanceDetail("Transaction ID", item.str("id", "—"))
